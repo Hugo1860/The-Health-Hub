@@ -1,0 +1,79 @@
+[
+  {
+    "id": "1753500000301",
+    "userId": "user-1753372657572-uydjcc4uh",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《评论降糖药对糖尿病视网膜病变的影响》已发布",
+    "relatedId": "1753403550673",
+    "relatedType": "audio",
+    "isRead": false,
+    "createdAt": "2025-07-26T04:30:00.000Z"
+  },
+  {
+    "id": "1753500000302",
+    "userId": "admin-1",
+    "type": "new_question",
+    "title": "新问题提出",
+    "message": "用户hugo在《评论降糖药对糖尿病视网膜病变的影响》中提出了新问题",
+    "relatedId": "1753500000002",
+    "relatedType": "question",
+    "isRead": true,
+    "createdAt": "2025-07-26T05:00:00.000Z"
+  },
+  {
+    "userId": "user-1753372657572-uydjcc4uh",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《卫生临床护理规范标准发布》已发布",
+    "relatedId": "1753625335077",
+    "relatedType": "audio",
+    "id": "1753625335084",
+    "createdAt": "2025-07-27T14:08:55.084Z",
+    "isRead": false
+  },
+  {
+    "userId": "user-1753372657572-uydjcc4uh",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《消化内科基因治疗新进展》已发布",
+    "relatedId": "1753671523939",
+    "relatedType": "audio",
+    "id": "1753671523941",
+    "createdAt": "2025-07-28T02:58:43.941Z",
+    "isRead": false
+  },
+  {
+    "userId": "admin-1",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《消化内科基因治疗新进展》已发布",
+    "relatedId": "1753671523939",
+    "relatedType": "audio",
+    "id": "1753671523941",
+    "createdAt": "2025-07-28T02:58:43.941Z",
+    "isRead": false
+  },
+  {
+    "userId": "user-1753372657572-uydjcc4uh",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《111》已发布",
+    "relatedId": "1753770623178",
+    "relatedType": "audio",
+    "id": "1753770623179",
+    "createdAt": "2025-07-29T06:30:23.179Z",
+    "isRead": false
+  },
+  {
+    "userId": "admin-1",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《111》已发布",
+    "relatedId": "1753770623178",
+    "relatedType": "audio",
+    "id": "1753770623179",
+    "createdAt": "2025-07-29T06:30:23.179Z",
+    "isRead": false
+  }
+]

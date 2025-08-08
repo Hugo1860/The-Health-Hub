@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1753600000101",
+    "audioId": "1753403550673",
+    "title": "重要统计数据",
+    "description": "糖尿病患者中视网膜病变的发病率统计",
+    "time": 45,
+    "type": "highlight",
+    "createdBy": "admin-1",
+    "createdAt": "2025-07-26T06:15:00.000Z"
+  },
+  {
+    "id": "1753600000102",
+    "audioId": "1753403550673",
+    "title": "胰岛素类似物",
+    "description": "胰岛素类似物的特点和优势",
+    "time": 180,
+    "type": "note",
+    "createdBy": "user-1753372657572-uydjcc4uh",
+    "createdAt": "2025-07-26T06:30:00.000Z"
+  },
+  {
+    "id": "1753600000103",
+    "audioId": "1753403550673",
+    "title": "关键研究结果",
+    "description": "DCCT研究的重要发现",
+    "time": 360,
+    "type": "highlight",
+    "createdBy": "admin-1",
+    "createdAt": "2025-07-26T06:45:00.000Z"
+  }
+]

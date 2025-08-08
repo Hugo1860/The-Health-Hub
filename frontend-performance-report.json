@@ -1,0 +1,203 @@
+{
+  "timestamp": "2025-08-04T09:46:37.971Z",
+  "summary": {
+    "total": 4,
+    "successful": 4,
+    "failed": 0,
+    "excellent": 2,
+    "good": 2
+  },
+  "results": [
+    {
+      "name": "Virtual Scroll Performance",
+      "status": "success",
+      "results": [
+        {
+          "dataSize": 100,
+          "visibleItems": 5,
+          "renderRatio": 5,
+          "memoryEfficiency": 95,
+          "calculationTime": 0.009,
+          "performance": "excellent"
+        },
+        {
+          "dataSize": 500,
+          "visibleItems": 5,
+          "renderRatio": 1,
+          "memoryEfficiency": 99,
+          "calculationTime": 0.002,
+          "performance": "excellent"
+        },
+        {
+          "dataSize": 1000,
+          "visibleItems": 5,
+          "renderRatio": 0.5,
+          "memoryEfficiency": 99.5,
+          "calculationTime": 0.001,
+          "performance": "excellent"
+        },
+        {
+          "dataSize": 5000,
+          "visibleItems": 5,
+          "renderRatio": 0.1,
+          "memoryEfficiency": 99.9,
+          "calculationTime": 0.001,
+          "performance": "excellent"
+        }
+      ],
+      "summary": {
+        "averageMemoryEfficiency": 98.35,
+        "averageCalculationTime": 0.003,
+        "overallPerformance": "excellent"
+      }
+    },
+    {
+      "name": "Lazy Loading Performance",
+      "status": "success",
+      "results": [
+        {
+          "scenario": "Images",
+          "totalItems": 50,
+          "visibleItems": 5,
+          "totalSize": 10000,
+          "loadedSize": 1000,
+          "savedSize": 9000,
+          "efficiency": 90,
+          "processingTime": 0.075,
+          "performance": "excellent"
+        },
+        {
+          "scenario": "Components",
+          "totalItems": 20,
+          "visibleItems": 5,
+          "totalSize": 1000,
+          "loadedSize": 250,
+          "savedSize": 750,
+          "efficiency": 75,
+          "processingTime": 0.002,
+          "performance": "good"
+        },
+        {
+          "scenario": "Heavy Components",
+          "totalItems": 10,
+          "visibleItems": 5,
+          "totalSize": 5000,
+          "loadedSize": 2500,
+          "savedSize": 2500,
+          "efficiency": 50,
+          "processingTime": 0.001,
+          "performance": "fair"
+        }
+      ],
+      "summary": {
+        "averageEfficiency": 71.67,
+        "totalSavedSize": 12250,
+        "overallPerformance": "good"
+      }
+    },
+    {
+      "name": "Memory Usage Test",
+      "status": "success",
+      "results": [
+        {
+          "testCase": "Small Dataset",
+          "itemCount": 100,
+          "virtualizedMemory": 10.1,
+          "nonVirtualizedMemory": 10.5,
+          "memorySaved": 0.4,
+          "efficiency": 3.81,
+          "withinExpected": false,
+          "performance": "fair"
+        },
+        {
+          "testCase": "Medium Dataset",
+          "itemCount": 1000,
+          "virtualizedMemory": 10.1,
+          "nonVirtualizedMemory": 15,
+          "memorySaved": 4.9,
+          "efficiency": 32.67,
+          "withinExpected": true,
+          "performance": "fair"
+        },
+        {
+          "testCase": "Large Dataset",
+          "itemCount": 5000,
+          "virtualizedMemory": 10.1,
+          "nonVirtualizedMemory": 35,
+          "memorySaved": 24.9,
+          "efficiency": 71.14,
+          "withinExpected": true,
+          "performance": "good"
+        },
+        {
+          "testCase": "Extra Large Dataset",
+          "itemCount": 10000,
+          "virtualizedMemory": 10.1,
+          "nonVirtualizedMemory": 60,
+          "memorySaved": 49.9,
+          "efficiency": 83.17,
+          "withinExpected": true,
+          "performance": "excellent"
+        }
+      ],
+      "summary": {
+        "averageEfficiency": 47.7,
+        "totalMemorySaved": 80.1,
+        "allWithinExpected": false,
+        "overallPerformance": "good"
+      }
+    },
+    {
+      "name": "Render Performance Test",
+      "status": "success",
+      "results": [
+        {
+          "testName": "Initial Render",
+          "complexity": "low",
+          "averageTime": 0.1,
+          "minTime": 0.03,
+          "maxTime": 0.486,
+          "expectedTime": 50,
+          "withinExpected": true,
+          "performance": "excellent"
+        },
+        {
+          "testName": "Scroll Render",
+          "complexity": "medium",
+          "averageTime": 0.183,
+          "minTime": 0.127,
+          "maxTime": 0.487,
+          "expectedTime": 16,
+          "withinExpected": true,
+          "performance": "excellent"
+        },
+        {
+          "testName": "Update Render",
+          "complexity": "low",
+          "averageTime": 0.029,
+          "minTime": 0.025,
+          "maxTime": 0.034,
+          "expectedTime": 10,
+          "withinExpected": true,
+          "performance": "excellent"
+        },
+        {
+          "testName": "Heavy Render",
+          "complexity": "high",
+          "averageTime": 0.279,
+          "minTime": 0.148,
+          "maxTime": 0.613,
+          "expectedTime": 100,
+          "withinExpected": true,
+          "performance": "excellent"
+        }
+      ],
+      "summary": {
+        "averageRenderTime": 0.148,
+        "allWithinExpected": true,
+        "excellentPerformanceCount": 4,
+        "overallPerformance": "excellent"
+      }
+    }
+  ]
+}

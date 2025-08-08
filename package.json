@@ -1,0 +1,74 @@
+{
+  "name": "the-health-hub",
+  "version": "1.0.0",
+  "description": "健闻局 The Health Hub - 专业的健康医学音频内容平台",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "lint:fix": "next lint --fix",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "rm -rf .next",
+    "export": "next export",
+    "analyze": "ANALYZE=true npm run build"
+  },
+  "keywords": [
+    "health",
+    "medical",
+    "audio",
+    "podcast",
+    "education",
+    "nextjs",
+    "react",
+    "typescript",
+    "antd"
+  ],
+  "author": "Hugo1860",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hugo1860/The-Health-Hub.git"
+  },
+  "homepage": "https://github.com/Hugo1860/The-Health-Hub#readme",
+  "bugs": {
+    "url": "https://github.com/Hugo1860/The-Health-Hub/issues"
+  },
+  "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@ant-design/nextjs-registry": "^1.1.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@heroicons/react": "^2.2.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/next-auth": "^3.13.0",
+    "@types/node": "^24.1.0",
+    "@types/react": "^19.1.8",
+    "antd": "^5.26.7",
+    "autoprefixer": "^10.4.21",
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^12.2.0",
+    "dayjs": "^1.11.13",
+    "fluent-ffmpeg": "^2.1.3",
+    "isomorphic-dompurify": "^2.26.0",
+    "lru-cache": "^10.4.3",
+    "next": "^15.4.3",
+    "next-auth": "^4.24.11",
+    "node-fetch": "^3.3.2",
+    "postcss": "^8.5.6",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-hot-toast": "^2.5.2",
+    "react-intersection-observer": "^9.16.0",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3",
+    "zod": "^4.0.14",
+    "zustand": "^5.0.6"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/react-dom": "^19.1.6"
+  }
+}

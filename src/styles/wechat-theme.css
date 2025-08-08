@@ -1,0 +1,612 @@
+/* 微信风格简约主题配色方案 */
+:root {
+  /* 微信主色调 - 简约大气 */
+  --wechat-primary: #07C160;           /* 微信绿 */
+  --wechat-primary-light: #1AAD19;     /* 微信绿亮版 */
+  --wechat-primary-dark: #029F5A;      /* 微信绿暗版 */
+  
+  /* 中性色调 - 简约大气 */
+  --wechat-bg-primary: #EDEDED;        /* 主背景色 */
+  --wechat-bg-secondary: #FFFFFF;      /* 卡片背景 */
+  --wechat-bg-tertiary: #F7F7F7;       /* 次要背景 */
+  --wechat-bg-hover: #F5F5F5;          /* 悬停背景 */
+  
+  /* 文字色阶 */
+  --wechat-text-primary: #191919;        /* 主要文字 */
+  --wechat-text-secondary: #666666;     /* 次要文字 */
+  --wechat-text-tertiary: #999999;      /* 提示文字 */
+  --wechat-text-light: #CCCCCC;         /* 最淡文字 */
+  
+  /* 边框色 */
+  --wechat-border-light: #E5E5E5;       /* 浅色边框 */
+  --wechat-border: #D1D1D1;            /* 标准边框 */
+  --wechat-border-dark: #B2B2B2;       /* 深色边框 */
+  
+  /* 状态色 */
+  --wechat-success: #07C160;           /* 成功色 */
+  --wechat-warning: #FA9D3B;           /* 警告色 */
+  --wechat-error: #FA5151;             /* 错误色 */
+  --wechat-info: #10AEFF;              /* 信息色 */
+  
+  /* 特殊色 */
+  --wechat-mask: rgba(0, 0, 0, 0.5);   /* 遮罩层 */
+  --wechat-divider: #E5E5E5;            /* 分割线 */
+  
+  /* 渐变效果 */
+  --wechat-gradient-primary: linear-gradient(135deg, #07C160 0%, #1AAD19 100%);
+  --wechat-gradient-card: linear-gradient(135deg, #FFFFFF 0%, #F7F7F7 100%);
+  
+  /* 阴影效果 - 微信风格 */
+  --wechat-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --wechat-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --wechat-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --wechat-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* 微信风格全局样式 */
+html,
+body,
+#__next,
+.ant-app {
+  background-color: var(--wechat-bg-primary) !important;
+  color: var(--wechat-text-primary) !important;
+}
+
+/* 微信风格布局背景 */
+.ant-layout,
+.ant-layout.ant-layout-has-sider {
+  background-color: var(--wechat-bg-primary) !important;
+}
+
+.ant-layout-header {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-bottom: 1px solid var(--wechat-border-light) !important;
+  box-shadow: var(--wechat-shadow-sm) !important;
+}
+
+.ant-layout-sider {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-right: 1px solid var(--wechat-border-light) !important;
+} 
+
+.ant-layout-sider.ant-layout-sider-dark {
+  background-color: var(--wechat-bg-secondary) !important;
+} 
+
+.ant-layout-sider-has-trigger {
+  background-color: var(--wechat-bg-secondary) !important;
+} 
+
+.css-dev-only-do-not-override-3t61a3 {
+  background-color: var(--wechat-bg-secondary) !important;
+}
+
+.ant-layout-content {
+  background-color: var(--wechat-bg-primary) !important;
+}
+
+/* 微信风格卡片 */
+.ant-card {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--wechat-shadow-sm) !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-card:hover {
+  box-shadow: var(--wechat-shadow-md) !important;
+  transform: translateY(-1px) !important;
+}
+
+.ant-card-head {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-bottom: 1px solid var(--wechat-border-light) !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.ant-card-head-title {
+  color: var(--wechat-text-primary) !important;
+  font-weight: 500 !important;
+}
+
+.ant-card-body {
+  background-color: var(--wechat-bg-secondary) !important;
+  color: var(--wechat-text-primary) !important;
+}
+
+/* 微信风格按钮 */
+.ant-btn-primary {
+  background-color: var(--wechat-primary) !important;
+  border-color: var(--wechat-primary) !important;
+  color: #FFFFFF !important;
+  border-radius: 4px !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-btn-primary:hover {
+  background-color: var(--wechat-primary-light) !important;
+  border-color: var(--wechat-primary-light) !important;
+  color: #FFFFFF !important;
+}
+
+.ant-btn-default {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border) !important;
+  color: var(--wechat-text-primary) !important;
+  border-radius: 4px !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-btn-default:hover {
+  background-color: var(--wechat-bg-hover) !important;
+  border-color: var(--wechat-border-dark) !important;
+  color: var(--wechat-text-primary) !important;
+}
+
+.ant-btn-text {
+  color: var(--wechat-text-secondary) !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-btn-text:hover {
+  background-color: var(--wechat-bg-hover) !important;
+  color: var(--wechat-primary) !important;
+}
+
+/* 微信风格输入框 */
+.ant-input,
+.ant-input-affix-wrapper {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border) !important;
+  color: var(--wechat-text-primary) !important;
+  border-radius: 4px !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-input:focus,
+.ant-input-affix-wrapper:focus {
+  border-color: var(--wechat-primary) !important;
+  box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.2) !important;
+}
+
+.ant-input::placeholder {
+  color: var(--wechat-text-tertiary) !important;
+}
+
+/* 微信风格菜单 */
+.ant-menu {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: none !important;
+}
+
+.ant-menu-item {
+  color: var(--wechat-text-primary) !important;
+  border-radius: 4px !important;
+  margin: 2px 8px !important;
+  transition: all 0.3s ease !important;
+}
+
+.ant-menu-item:hover {
+  background-color: var(--wechat-bg-hover) !important;
+  color: var(--wechat-primary) !important;
+}
+
+.ant-menu-item-selected {
+  background-color: var(--wechat-primary) !important;
+  color: #FFFFFF !important;
+}
+
+/* 微信风格标签 */
+.ant-tag {
+  background-color: var(--wechat-bg-tertiary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  color: var(--wechat-text-secondary) !important;
+  border-radius: 2px !important;
+  font-size: 12px !important;
+}
+
+.ant-tag-blue {
+  background-color: rgba(16, 174, 255, 0.1) !important;
+  border-color: var(--wechat-info) !important;
+  color: var(--wechat-info) !important;
+}
+
+.ant-tag-green {
+  background-color: rgba(7, 193, 96, 0.1) !important;
+  border-color: var(--wechat-success) !important;
+  color: var(--wechat-success) !important;
+}
+
+.ant-tag-orange {
+  background-color: rgba(250, 157, 59, 0.1) !important;
+  border-color: var(--wechat-warning) !important;
+  color: var(--wechat-warning) !important;
+}
+
+.ant-tag-red {
+  background-color: rgba(250, 81, 81, 0.1) !important;
+  border-color: var(--wechat-error) !important;
+  color: var(--wechat-error) !important;
+}
+
+/* 微信风格列表 */
+.ant-list-item {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-bottom: 1px solid var(--wechat-border-light) !important;
+  padding: 12px 16px !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-list-item:hover {
+  background-color: var(--wechat-bg-hover) !important;
+}
+
+.ant-list-item-meta-title {
+  color: var(--wechat-text-primary) !important;
+  font-weight: 500 !important;
+}
+
+.ant-list-item-meta-description {
+  color: var(--wechat-text-secondary) !important;
+}
+
+/* 微信风格表格 */
+.ant-table {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.ant-table-thead > tr > th {
+  background-color: var(--wechat-bg-tertiary) !important;
+  color: var(--wechat-text-primary) !important;
+  font-weight: 600 !important;
+  border-bottom: 1px solid var(--wechat-border-light) !important;
+}
+
+.ant-table-tbody > tr > td {
+  background-color: var(--wechat-bg-secondary) !important;
+  color: var(--wechat-text-primary) !important;
+  border-bottom: 1px solid var(--wechat-border-light) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background-color: var(--wechat-bg-hover) !important;
+}
+
+/* 微信风格分页 */
+.ant-pagination-item {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border) !important;
+  border-radius: 4px !important;
+}
+
+.ant-pagination-item-active {
+  background-color: var(--wechat-primary) !important;
+  border-color: var(--wechat-primary) !important;
+}
+
+.ant-pagination-item-active a {
+  color: #FFFFFF !important;
+}
+
+/* 微信风格模态框 */
+.ant-modal-content {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--wechat-shadow-lg) !important;
+}
+
+.ant-modal-header {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-bottom: 1px solid var(--wechat-border-light) !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.ant-modal-title {
+  color: var(--wechat-text-primary) !important;
+  font-weight: 500 !important;
+}
+
+.ant-modal-body {
+  color: var(--wechat-text-primary) !important;
+}
+
+/* 微信风格通知 */
+.ant-notification-notice {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--wechat-shadow-lg) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+}
+
+.ant-notification-notice-message {
+  color: var(--wechat-text-primary) !important;
+  font-weight: 500 !important;
+}
+
+.ant-notification-notice-description {
+  color: var(--wechat-text-secondary) !important;
+}
+
+/* 微信风格进度条 */
+.ant-progress-bg {
+  background-color: var(--wechat-primary) !important;
+}
+
+.ant-progress-text {
+  color: var(--wechat-text-secondary) !important;
+}
+
+/* 微信风格开关 */
+.ant-switch-checked {
+  background-color: var(--wechat-primary) !important;
+}
+
+.ant-switch-inner {
+  color: #FFFFFF !important;
+}
+
+/* 微信风格选择器 */
+.ant-select-selector {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border) !important;
+  border-radius: 4px !important;
+}
+
+.ant-select-selector:hover {
+  border-color: var(--wechat-primary) !important;
+}
+
+.ant-select-dropdown {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 4px !important;
+  box-shadow: var(--wechat-shadow-md) !important;
+}
+
+.ant-select-item {
+  color: var(--wechat-text-primary) !important;
+}
+
+.ant-select-item-option-selected {
+  background-color: var(--wechat-bg-hover) !important;
+  color: var(--wechat-primary) !important;
+}
+
+.ant-select-item-option-active {
+  background-color: var(--wechat-bg-hover) !important;
+}
+
+/* 微信风格日期选择器 */
+.ant-picker {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border) !important;
+  border-radius: 4px !important;
+}
+
+.ant-picker:hover {
+  border-color: var(--wechat-primary) !important;
+}
+
+.ant-picker-panel {
+  background-color: var(--wechat-bg-secondary) !important;
+}
+
+.ant-picker-cell-in-view {
+  color: var(--wechat-text-primary) !important;
+}
+
+.ant-picker-cell-selected .ant-picker-cell-inner {
+  background-color: var(--wechat-primary) !important;
+  color: #FFFFFF !important;
+}
+
+.ant-picker-cell-today .ant-picker-cell-inner {
+  border-color: var(--wechat-primary) !important;
+  color: var(--wechat-primary) !important;
+}
+
+/* 微信风格滑块 */
+.ant-slider-track {
+  background-color: var(--wechat-primary) !important;
+}
+
+.ant-slider-handle {
+  border-color: var(--wechat-primary) !important;
+}
+
+/* 微信风格加载 */
+.ant-spin-dot-item {
+  background-color: var(--wechat-primary) !important;
+}
+
+/* 微信风格空状态 */
+.ant-empty-description {
+  color: var(--wechat-text-secondary) !important;
+}
+
+/* 微信风格面包屑 */
+.ant-breadcrumb-link {
+  color: var(--wechat-text-secondary) !important;
+}
+
+.ant-breadcrumb-link:hover {
+  color: var(--wechat-primary) !important;
+}
+
+.ant-breadcrumb-separator {
+  color: var(--wechat-text-tertiary) !important;
+}
+
+/* 微信风格步骤条 */
+.ant-steps-item-process .ant-steps-item-icon {
+  background-color: var(--wechat-primary) !important;
+  border-color: var(--wechat-primary) !important;
+}
+
+.ant-steps-item-finish .ant-steps-item-icon {
+  border-color: var(--wechat-primary) !important;
+}
+
+.ant-steps-item-finish .ant-steps-item-icon > .ant-steps-icon {
+  color: var(--wechat-primary) !important;
+}
+
+/* 微信风格标签页 */
+.ant-tabs-tab {
+  color: var(--wechat-text-secondary) !important;
+}
+
+.ant-tabs-tab:hover {
+  color: var(--wechat-primary) !important;
+}
+
+.ant-tabs-tab-active {
+  color: var(--wechat-primary) !important;
+}
+
+.ant-tabs-ink-bar {
+  background-color: var(--wechat-primary) !important;
+}
+
+/* 微信风格时间轴 */
+.ant-timeline-item-head {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-color: var(--wechat-border) !important;
+}
+
+.ant-timeline-item-head-blue {
+  border-color: var(--wechat-primary) !important;
+  color: var(--wechat-primary) !important;
+}
+
+/* 微信风格上传 */
+.ant-upload {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px dashed var(--wechat-border) !important;
+  border-radius: 4px !important;
+}
+
+.ant-upload:hover {
+  border-color: var(--wechat-primary) !important;
+}
+
+/* 微信风格统计卡片 */
+.wechat-stat-card {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--wechat-shadow-sm) !important;
+  transition: all 0.3s ease !important;
+}
+
+.wechat-stat-card:hover {
+  box-shadow: var(--wechat-shadow-md) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 微信风格音频卡片 */
+.wechat-audio-card {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--wechat-shadow-sm) !important;
+  transition: all 0.3s ease !important;
+}
+
+.wechat-audio-card:hover {
+  box-shadow: var(--wechat-shadow-md) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* 微信风格搜索框 */
+.wechat-search {
+  background-color: var(--wechat-bg-tertiary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 20px !important;
+  color: var(--wechat-text-primary) !important;
+}
+
+.wechat-search:focus {
+  border-color: var(--wechat-primary) !important;
+  box-shadow: 0 0 0 2px rgba(7, 193, 96, 0.2) !important;
+}
+
+/* 微信风格导航栏 */
+.wechat-nav {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-bottom: 1px solid var(--wechat-border-light) !important;
+  box-shadow: var(--wechat-shadow-sm) !important;
+}
+
+/* 微信风格侧边栏 */
+.wechat-sidebar {
+  background-color: var(--wechat-bg-secondary) !important;
+  border-right: 1px solid var(--wechat-border-light) !important;
+}
+
+/* 微信风格消息提示 */
+.wechat-message {
+  background-color: var(--chat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 8px !important;
+  box-shadow: var(--wechat-shadow-sm) !important;
+}
+
+/* 微信风格按钮组 */
+.wechat-btn-group {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 4px !important;
+}
+
+/* 微信风格分页器 */
+.wechat-pagination {
+  background-color: var(--wechat-bg-secondary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  border-radius: 4px !important;
+}
+
+/* 微信风格标签 */
+.wechat-tag {
+  background-color: var(--wechat-bg-tertiary) !important;
+  border: 1px solid var(--wechat-border-light) !important;
+  color: var(--wechat-text-secondary) !important;
+  border-radius: 2px !important;
+  font-size: 12px !important;
+  padding: 2px 6px !important;
+}
+
+/* 微信风格头像 */
+.wechat-avatar {
+  border-radius: 4px !important;
+  box-shadow: var(--wechat-shadow-sm) !important;
+}
+
+/* 微信风格分割线 */
+.wechat-divider {
+  background-color: var(--wechat-divider) !important;
+  height: 1px !important;
+  margin: 8px 0 !important;
+}
+
+/* 微信风格滚动条 */
+.wechat-scrollbar::-webkit-scrollbar {
+  width: 6px !important;
+}
+
+.wechat-scrollbar::-webkit-scrollbar-track {
+  background-color: var(--wechat-bg-tertiary) !important;
+}
+
+.wechat-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--wechat-border) !important;
+  border-radius: 3px !important;
+}
+
+.wechat-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--wechat-border-dark) !important;
+}

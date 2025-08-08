@@ -1,0 +1,19 @@
+[
+  {
+    "id": "1753500000201",
+    "userId": "user-1753372657572-uydjcc4uh",
+    "type": "all",
+    "notificationMethod": "inApp",
+    "createdAt": "2025-07-26T04:00:00.000Z",
+    "isActive": true
+  },
+  {
+    "id": "1753500000202",
+    "userId": "admin-1",
+    "type": "subject",
+    "value": "内科学",
+    "notificationMethod": "both",
+    "createdAt": "2025-07-26T04:15:00.000Z",
+    "isActive": true
+  }
+]
