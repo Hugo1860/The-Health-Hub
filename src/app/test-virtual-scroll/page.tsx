@@ -224,7 +224,7 @@ export default function TestVirtualScrollPage() {
           onLoadMore={handleLoadMore}
           onAudioClick={handleAudioClick}
           onPlayPause={handlePlayPause}
-          currentPlayingId={currentPlayingId}
+          currentPlayingId={currentPlayingId ?? undefined}
           isPlaying={isPlaying}
           showRating={showRating}
           showTags={showTags}

@@ -359,7 +359,7 @@ function AdminDashboard() {
                               <Text type="secondary">{audio.speaker}</Text>
                             </>
                           )}
-                          <Tag color="blue" size="small">{audio.subject}</Tag>
+                          <Tag color="blue">{audio.subject}</Tag>
                         </Space>
                       }
                     />
@@ -518,8 +518,9 @@ function AdminDashboard() {
       </Space>
     </AntdAdminLayout>
   );
-}export
- default function AdminDashboardPage() {
+}
+
+export default function AdminDashboardPage() {
   return (
     <AntdAdminGuard>
       <AdminDashboard />

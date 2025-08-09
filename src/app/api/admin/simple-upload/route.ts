@@ -8,11 +8,18 @@ import { existsSync } from 'fs';
 
 export async function POST(request: NextRequest) {
   console.log('=== Simple Admin Upload API Called ===');
+  console.log('Request method:', request.method);
+  console.log('Request URL:', request.url);
+  console.log('Request headers:', Object.fromEntries(request.headers.entries()));
   
   try {
     // 检查管理员权限
+    console.log('Checking authentication...');
     const session = await getServerSession(authOptions);
+    console.log('Session:', session ? 'Found' : 'Not found');
+    
     if (!session?.user) {
+      console.log('No authentication found');
       return NextResponse.json({
         success: false,
         error: 'No authentication found'
@@ -20,9 +27,11 @@ export async function POST(request: NextRequest) {
     }
     
     const user = session.user as any;
+    console.log('User found:', { email: user.email, role: user.role });
     const isAdmin = user.role === 'admin';
     
     if (!isAdmin) {
+      console.log('User is not admin, role:', user.role);
       return NextResponse.json({
         success: false,
         error: 'Admin role required'
@@ -227,6 +236,46 @@ export async function POST(request: NextRequest) {
     
   } catch (error) {
     console.error('Upload API error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}
+
+// 添加GET方法用于测试API可访问性
+export async function GET(request: NextRequest) {
+  console.log('=== Simple Admin Upload API GET Called ===');
+  
+  try {
+    // 检查管理员权限
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({
+        success: false,
+        error: 'No authentication found'
+      }, { status: 401 });
+    }
+    
+    const user = session.user as any;
+    const isAdmin = user.role === 'admin';
+    
+    if (!isAdmin) {
+      return NextResponse.json({
+        success: false,
+        error: 'Admin role required'
+      }, { status: 403 });
+    }
+    
+    return NextResponse.json({
+      success: true,
+      message: 'Upload API is accessible',
+      user: { email: user.email, role: user.role }
+    });
+    
+  } catch (error) {
+    console.error('Upload API GET error:', error);
     return NextResponse.json({
       success: false,
       error: 'Internal server error',

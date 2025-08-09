@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     console.log('7. Query result:', audios.length, 'records found');
     
     // 6. 处理数据
-    const processedAudios = audios.map(audio => ({
+    const processedAudios = audios.map((audio: any) => ({
       ...audio,
       tags: typeof audio.tags === 'string' ? JSON.parse(audio.tags || '[]') : (audio.tags || [])
     }));

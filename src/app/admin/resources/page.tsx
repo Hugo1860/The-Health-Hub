@@ -121,7 +121,7 @@ export default function ResourcesManagementPage() {
         }
         
         // 处理音频数据
-        const processedAudioData = audioData.map(audio => ({
+        const processedAudioData = audioData.map((audio: any) => ({
           ...audio,
           tags: typeof audio.tags === 'string' ? JSON.parse(audio.tags || '[]') : (audio.tags || []),
           uploadDate: audio.uploadDate || new Date().toISOString(),

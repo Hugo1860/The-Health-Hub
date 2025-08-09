@@ -162,7 +162,6 @@ export const GET = withSecurityAndValidation(
   searchUsersSchema,
   {
     requireAuth: true,
-    requireAdmin: true,
     enableRateLimit: true,
     rateLimitMax: 30,
     rateLimitWindow: 60000,

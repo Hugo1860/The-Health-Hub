@@ -251,7 +251,7 @@ export function withPerformanceMonitoring<P extends object>(
 // 内存泄漏检测Hook
 export function useMemoryLeakDetection(componentName?: string) {
   const initialMemoryRef = useRef<number>(0);
-  const checkIntervalRef = useRef<NodeJS.Timeout>();
+  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [memoryTrend, setMemoryTrend] = useState<'stable' | 'increasing' | 'decreasing'>('stable');
   const memoryHistoryRef = useRef<number[]>([]);
 

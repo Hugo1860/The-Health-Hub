@@ -176,12 +176,12 @@ const AudioListItem: React.FC<{
               {showTags && audio.tags && audio.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
                   {audio.tags.slice(0, 3).map((tag, tagIndex) => (
-                    <Tag key={tagIndex} size="small" className="text-xs">
+                    <Tag key={tagIndex} className="text-xs">
                       {tag}
                     </Tag>
                   ))}
                   {audio.tags.length > 3 && (
-                    <Tag size="small" className="text-xs text-gray-400">
+                    <Tag className="text-xs text-gray-400">
                       +{audio.tags.length - 3}
                     </Tag>
                   )}

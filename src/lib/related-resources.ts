@@ -6,7 +6,7 @@ export interface RelatedResource {
   audioId: string;
   title: string;
   url: string;
-  type: 'link' | 'pdf' | 'image' | 'slides';
+  type: 'link' | 'pdf' | 'image';
   description?: string;
   createdAt: string;
   createdBy: string;

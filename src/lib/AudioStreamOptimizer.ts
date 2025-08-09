@@ -1,4 +1,4 @@
-import { readFile, stat, createReadStream } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import { createReadStream as createFileStream } from 'fs';
 import { join } from 'path';
 import { optimizedDb } from './OptimizedDatabase';
@@ -189,7 +189,7 @@ export class AudioStreamOptimizer {
     const webStream = new ReadableStream({
       start(controller) {
         fileStream.on('data', (chunk) => {
-          controller.enqueue(new Uint8Array(chunk));
+          controller.enqueue(new Uint8Array(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
         });
 
         fileStream.on('end', () => {

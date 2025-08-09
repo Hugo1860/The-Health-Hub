@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 export interface LazyLoadManagerProps {
   children: React.ReactNode;
@@ -72,7 +72,7 @@ export const LazyLoadManager: React.FC<LazyLoadManagerProps> = ({
   const [isVisible, setIsVisible] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { ref, inView } = useInView({
     threshold,
@@ -370,7 +370,7 @@ export const BatchLazyLoadManager: React.FC<BatchLazyLoadManagerProps> = ({
   onBatchLoad
 }) => {
   const [loadedBatches, setLoadedBatches] = useState<Set<number>>(new Set([0]));
-  const timeoutRefs = useRef<Map<number, NodeJS.Timeout>>(new Map());
+  const timeoutRefs = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
   const batches = useMemo(() => {
     const result: React.ReactNode[][] = [];
@@ -384,7 +384,11 @@ export const BatchLazyLoadManager: React.FC<BatchLazyLoadManagerProps> = ({
     if (loadedBatches.has(batchIndex)) return;
 
     const timeoutId = setTimeout(() => {
-      setLoadedBatches(prev => new Set([...prev, batchIndex]));
+      setLoadedBatches(prev => {
+        const next = new Set(prev);
+        next.add(batchIndex);
+        return next;
+      });
       onBatchLoad?.(batchIndex);
       timeoutRefs.current.delete(batchIndex);
     }, delay);

@@ -35,7 +35,7 @@ const behaviorSchema = z.object({
   position: z.number().optional(),
   duration: z.number().optional(),
   context: z.object({
-    source: z.enum(['playlist', 'search', 'recommendation', 'direct']).optional(),
+    source: z.enum(['playlist', 'search', 'recommendation', 'direct']),
     previousAudioId: z.string().optional(),
     playlistId: z.string().optional(),
     searchQuery: z.string().optional()

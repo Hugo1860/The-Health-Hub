@@ -35,7 +35,7 @@ interface RelatedResource {
   id: string
   title: string
   url: string
-  type: 'link' | 'pdf' | 'image' | 'slides'
+  type: 'link' | 'pdf' | 'image'
   description?: string
 }
 
@@ -546,7 +546,7 @@ export default function EditAudioPage() {
                                 <option value="link">链接</option>
                                 <option value="pdf">PDF</option>
                                 <option value="image">图片</option>
-                                <option value="slides">幻灯片</option>
+
                               </select>
                             </div>
                             <div className="col-span-1">

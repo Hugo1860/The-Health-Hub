@@ -234,7 +234,8 @@ export class DatabaseConnectionPool {
    * 查找空闲连接
    */
   private findIdleConnection(): PooledConnection | null {
-    for (const connection of this.connections.values()) {
+    const connections = Array.from(this.connections.values());
+    for (const connection of connections) {
       if (!connection.inUse) {
         return connection;
       }
@@ -249,7 +250,8 @@ export class DatabaseConnectionPool {
     const now = Date.now();
     const connectionsToRemove: string[] = [];
 
-    for (const [id, connection] of this.connections.entries()) {
+    const entries = Array.from(this.connections.entries());
+    for (const [id, connection] of entries) {
       // 跳过正在使用的连接
       if (connection.inUse) continue;
 
@@ -366,7 +368,7 @@ export class DatabaseConnectionPool {
     const connection = await this.acquire();
     try {
       const transaction = connection.transaction(transactionFn);
-      return transaction();
+      return transaction(connection);
     } finally {
       this.release(connection);
     }
@@ -388,7 +390,8 @@ export class DatabaseConnectionPool {
     this.waitingQueue.length = 0;
 
     // 关闭所有连接
-    for (const [id, connection] of this.connections.entries()) {
+    const entries = Array.from(this.connections.entries());
+    for (const [id, connection] of entries) {
       try {
         connection.connection.close();
       } catch (error) {

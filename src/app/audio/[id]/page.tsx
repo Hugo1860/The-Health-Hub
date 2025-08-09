@@ -60,8 +60,7 @@ import ChapterManager from '../../../components/ChapterManager'
 import TranscriptionManager from '../../../components/TranscriptionManager'
 import TranscriptionViewer from '../../../components/TranscriptionViewer'
 import RelatedResources from '../../../components/RelatedResources'
-import SlideViewer from '../../../components/SlideViewer'
-import SlideManager from '../../../components/SlideManager'
+
 
 const { Content } = Layout
 const { Title, Paragraph } = Typography
@@ -300,14 +299,19 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
         await navigator.clipboard.writeText(shareUrl)
         message.success('链接已复制到剪贴板')
       }
-    } catch (error) {
+    } catch (error: unknown) {
       // 如果分享被取消或失败，尝试复制链接
-      if (error.name !== 'AbortError') { // 用户取消分享不显示错误
+      const isAbortError =
+        error instanceof Error
+          ? error.name === 'AbortError'
+          : typeof (error as any)?.name === 'string' && (error as any).name === 'AbortError'
+      
+      if (!isAbortError) { // 用户取消分享不显示错误
         try {
           const shareUrl = `${window.location.origin}/audio/${audioId}`
           await navigator.clipboard.writeText(shareUrl)
           message.success('链接已复制到剪贴板')
-        } catch (clipboardError) {
+        } catch (clipboardError: unknown) {
           message.error('分享失败，请稍后重试')
         }
       }
@@ -771,13 +775,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                 searchQuery={searchQuery}
               />
               
-              {/* 幻灯片查看器 */}
-              <SlideViewer 
-                audioId={audio.id}
-                currentTime={currentTime}
-                onSlideClick={handleSeekTo}
-              />
-              
+
               {/* 转录文本查看器 */}
               <Card
                 title={
@@ -798,24 +796,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                 />
               </Card>
               
-              {/* 幻灯片查看器 */}
-              <Card
-                title={
-                  <Space>
-                    <FileTextOutlined style={{ color: '#00529B' }} />
-                    <span>演示文稿</span>
-                  </Space>
-                }
-                style={{ marginBottom: 24 }}
-                size={isMobile ? "small" : "default"}
-              >
-                <SlideViewer 
-                  audioId={audio.id}
-                  currentTime={currentTime}
-                  onSlideClick={handleSeekTo}
-                />
-              </Card>
-              
+
               {/* 播放历史记录 */}
               <Card
                 title={
@@ -841,15 +822,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                     <ChapterManager audioId={audio.id} />
                   </Card>
                 </Col>
-                <Col xs={24} lg={8}>
-                  <Card
-                    title="幻灯片管理"
-                    size="small"
-                    style={{ height: '100%' }}
-                  >
-                    <SlideManager audioId={audio.id} />
-                  </Card>
-                </Col>
+
                 <Col xs={24} lg={8}>
                   <Card
                     title="转录管理"

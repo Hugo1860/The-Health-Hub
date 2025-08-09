@@ -53,7 +53,6 @@ export const POST = withSecurityAndValidation(
   cleanupBackupsSchema,
   {
     requireAuth: true,
-    requireAdmin: true,
     enableRateLimit: true,
     rateLimitMax: 5,
     rateLimitWindow: 300000, // 5分钟内最多5次

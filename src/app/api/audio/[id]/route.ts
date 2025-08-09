@@ -14,8 +14,8 @@ const audioUpdateSchema = z.object({
 
 // GET: Fetch a single audio file by ID
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     console.log('Fetching audio with ID:', id);
     
     const stmt = db.prepare('SELECT * FROM audios WHERE id = ?');
@@ -46,8 +46,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 // PUT: Update an audio file's details
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const { id } = await params;
     const body = await request.json();
 
     const validation = audioUpdateSchema.safeParse(body);
@@ -85,15 +85,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ message: 'Audio updated successfully', audio: updatedAudio });
 
   } catch (error) {
-    console.error(`Failed to update audio ${params.id}:`, error);
+    console.error(`Failed to update audio ${id}:`, error);
     return NextResponse.json({ error: 'Failed to update audio' }, { status: 500 });
   }
 }
 
 // DELETE: Delete an audio file
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
-    const { id } = await params;
 
     // First, get the audio file path to delete the actual file
     const getPathStmt = db.prepare('SELECT url FROM audios WHERE id = ?');
@@ -124,7 +124,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     return NextResponse.json({ message: 'Audio deleted successfully' });
   } catch (error) {
-    console.error(`Failed to delete audio ${params.id}:`, error);
+    console.error(`Failed to delete audio ${id}:`, error);
     return NextResponse.json({ error: 'Failed to delete audio' }, { status: 500 });
   }
 }

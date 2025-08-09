@@ -559,7 +559,8 @@ export class IntelligentPreloader {
     const now = Date.now();
     const maxAge = 30 * 60 * 1000; // 30分钟
 
-    for (const [audioId, item] of this.preloadedItems.entries()) {
+    const entries = Array.from(this.preloadedItems.entries());
+    for (const [audioId, item] of entries) {
       if (now - item.preloadedAt > maxAge && item.accessCount === 0) {
         this.preloadedItems.delete(audioId);
         this.currentCacheSize -= item.estimatedSize;

@@ -11,7 +11,7 @@ const BrowseHeader = () => (
   </div>
 );
 
-export default function BrowsePageWrapper({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined }}) {
+export default function BrowsePageWrapper({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     return (
         <PageErrorBoundary>
             <Suspense fallback={

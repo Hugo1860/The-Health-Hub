@@ -3,7 +3,7 @@
 import { NextRequest } from 'next/server'
 import db from '@/lib/db'
 import { AdminApiResponseBuilder, parseSearchParams } from '@/lib/adminApiUtils'
-import { createAdminMiddleware, AdminPermission } from '@/lib/adminAuthMiddleware'
+import { createAdminMiddleware, AdminPermission, AuthenticatedAdmin } from '@/lib/adminAuthMiddleware'
 import { withErrorHandling, withDatabaseErrorHandling } from '@/lib/adminErrorMiddleware'
 
 // 热门内容数据接口

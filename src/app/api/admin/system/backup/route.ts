@@ -63,7 +63,6 @@ export const GET = withSecurity(
   },
   {
     requireAuth: true,
-    requireAdmin: true,
     enableRateLimit: true,
     rateLimitMax: 20,
     rateLimitWindow: 60000,
@@ -129,7 +128,6 @@ export const POST = withSecurityAndValidation(
   createBackupSchema,
   {
     requireAuth: true,
-    requireAdmin: true,
     enableRateLimit: true,
     rateLimitMax: 5,
     rateLimitWindow: 300000, // 5分钟内最多5次
@@ -181,7 +179,6 @@ export const DELETE = withSecurityAndValidation(
   deleteBackupSchema,
   {
     requireAuth: true,
-    requireAdmin: true,
     enableRateLimit: true,
     rateLimitMax: 10,
     rateLimitWindow: 60000,

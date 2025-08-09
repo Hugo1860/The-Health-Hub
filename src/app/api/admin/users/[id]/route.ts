@@ -275,9 +275,9 @@ const getUserActivity = withDatabaseErrorHandling(async (userId: string, limit: 
 })
 
 // GET 处理函数 - 获取单个用户
-async function handleGet(request: NextRequest, context: { params: { id: string } }): Promise<Response> {
+async function handleGet(request: NextRequest, context: { params: Promise<{ id: string }> }): Promise<Response> {
   try {
-    const userId = context.params.id
+    const { id: userId } = await context.params
     const searchParams = request.nextUrl.searchParams
     const includeActivity = searchParams.get('includeActivity') === 'true'
     
@@ -299,9 +299,9 @@ async function handleGet(request: NextRequest, context: { params: { id: string }
 }
 
 // PUT 处理函数 - 更新用户
-async function handlePut(request: NextRequest, context: { params: { id: string } }): Promise<Response> {
+async function handlePut(request: NextRequest, context: { params: Promise<{ id: string }> }): Promise<Response> {
   try {
-    const userId = context.params.id
+    const { id: userId } = await context.params
     const updateData: UserUpdateData = await request.json()
     
     const updatedUser = await updateUser(userId, updateData)
@@ -317,9 +317,9 @@ async function handlePut(request: NextRequest, context: { params: { id: string }
 }
 
 // DELETE 处理函数 - 删除用户
-async function handleDelete(request: NextRequest, context: { params: { id: string } }): Promise<Response> {
+async function handleDelete(request: NextRequest, context: { params: Promise<{ id: string }> }): Promise<Response> {
   try {
-    const userId = context.params.id
+    const { id: userId } = await context.params
     
     await deleteUser(userId)
     

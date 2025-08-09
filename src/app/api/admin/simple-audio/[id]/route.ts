@@ -4,11 +4,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 // 获取单个音频信息
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   console.log('=== Simple Admin Get Audio API Called ===');
   
   try {
-    const { id } = params;
+    const { id } = await params;
     console.log('Getting audio with ID:', id);
     
     // 检查管理员权限
@@ -68,11 +68,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // 更新音频信息
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   console.log('=== Simple Admin Update Audio API Called ===');
   
   try {
-    const { id } = params;
+    const { id } = await params;
     console.log('Updating audio with ID:', id);
     
     // 检查管理员权限
@@ -168,11 +168,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 // 删除音频
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   console.log('=== Simple Admin Delete Audio API Called ===');
   
   try {
-    const { id } = params;
+    const { id } = await params;
     console.log('Deleting audio with ID:', id);
     
     // 检查管理员权限

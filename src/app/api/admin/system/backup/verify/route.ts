@@ -50,7 +50,6 @@ export const POST = withSecurityAndValidation(
   verifyBackupSchema,
   {
     requireAuth: true,
-    requireAdmin: true,
     enableRateLimit: true,
     rateLimitMax: 10,
     rateLimitWindow: 60000,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { optimizedDb } from '@/lib/OptimizedDatabase';
 import { userQueryOptimizer } from '@/lib/QueryOptimizationMiddleware';
+import { userQueryCache } from '@/lib/QueryCache';
 import { z } from 'zod';
 
 // Schema for validating query parameters
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
     const cacheKey = 'user_statistics';
     const cacheTTL = 300000; // 5分钟缓存
 
-    const stats = await optimizedDb.queryCache.cached(
+    const stats = await userQueryCache.cached(
       cacheKey,
       async () => {
         // 获取用户统计信息

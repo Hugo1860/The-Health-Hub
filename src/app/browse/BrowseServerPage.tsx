@@ -104,14 +104,15 @@ async function fetchAudios(apiUrl: string, searchParams: { [key: string]: string
     }
 }
 
-export default async function BrowseServerPage({ searchParams }: { searchParams: { [key:string]: string | string[] | undefined }}) {
+export default async function BrowseServerPage({ searchParams }: { searchParams: Promise<{ [key:string]: string | string[] | undefined }> }) {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const resolvedSearchParams = await searchParams;
 
     try {
         // Fetch data in parallel with error handling
         const [categoriesResult, audioResult] = await Promise.all([
             fetchCategories(API_URL),
-            fetchAudios(API_URL, searchParams)
+            fetchAudios(API_URL, resolvedSearchParams)
         ]);
 
         // 如果两个 API 都失败了，显示主要错误
@@ -121,8 +122,8 @@ export default async function BrowseServerPage({ searchParams }: { searchParams:
                     initialCategories={DEFAULT_CATEGORIES}
                     initialAudios={[]}
                     initialPagination={{ page: 1, limit: 10, totalItems: 0, totalPages: 0 }}
-                    initialSearch={searchParams?.search as string || ''}
-                    initialCategory={searchParams?.category as string || ''}
+                    initialSearch={resolvedSearchParams?.search as string || ''}
+                    initialCategory={resolvedSearchParams?.category as string || ''}
                     initialError={{
                         hasError: true,
                         message: '页面数据加载失败，请检查网络连接',
@@ -139,8 +140,8 @@ export default async function BrowseServerPage({ searchParams }: { searchParams:
                 initialCategories={categoriesResult.data}
                 initialAudios={audioResult.data}
                 initialPagination={audioResult.pagination}
-                initialSearch={searchParams?.search as string || ''}
-                initialCategory={searchParams?.category as string || ''}
+                initialSearch={resolvedSearchParams?.search as string || ''}
+                initialCategory={resolvedSearchParams?.category as string || ''}
                 initialError={audioResult.error || categoriesResult.error}
             />
         );
@@ -153,8 +154,8 @@ export default async function BrowseServerPage({ searchParams }: { searchParams:
                 initialCategories={DEFAULT_CATEGORIES}
                 initialAudios={[]}
                 initialPagination={{ page: 1, limit: 10, totalItems: 0, totalPages: 0 }}
-                initialSearch={searchParams?.search as string || ''}
-                initialCategory={searchParams?.category as string || ''}
+                initialSearch={resolvedSearchParams?.search as string || ''}
+                initialCategory={resolvedSearchParams?.category as string || ''}
                 initialError={{
                     hasError: true,
                     message: '页面加载时发生未知错误',

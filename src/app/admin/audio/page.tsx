@@ -98,7 +98,7 @@ function AudioManagement() {
         }
         
         // 确保每个音频对象都有必要的字段
-        const processedAudioData = audioData.map(audio => ({
+        const processedAudioData = audioData.map((audio: any) => ({
           ...audio,
           tags: typeof audio.tags === 'string' ? JSON.parse(audio.tags || '[]') : (audio.tags || []),
           uploadDate: audio.uploadDate || new Date().toISOString(),
@@ -109,6 +109,11 @@ function AudioManagement() {
         
         console.log('Processed audio data:', processedAudioData);
         setAudioList(processedAudioData);
+        
+        // 显示获取成功的消息（仅在开发环境）
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`成功获取 ${processedAudioData.length} 条音频记录`);
+        }
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('API error:', errorData);
@@ -270,14 +275,34 @@ function AudioManagement() {
       
       console.log('解析后的响应数据:', data);
 
-      if (response.ok) {
-        message.success('上传成功');
+      if (response.ok && data.success) {
+        message.success('上传成功！');
         setUploadModalVisible(false);
         form.resetFields();
-        fetchAudioList();
+        // 延迟刷新列表，确保数据已经保存
+        setTimeout(() => {
+          fetchAudioList();
+        }, 1000);
       } else {
         console.error('上传失败:', data);
-        const errorMessage = data?.error || data?.message || `HTTP ${response.status} 错误`;
+        console.error('响应状态:', response.status);
+        console.error('响应状态文本:', response.statusText);
+        
+        let errorMessage = '上传失败';
+        if (data?.error) {
+          errorMessage = typeof data.error === 'string' ? data.error : data.error.message || '未知错误';
+        } else if (data?.message) {
+          errorMessage = data.message;
+        } else if (response.status === 401) {
+          errorMessage = '认证失败，请重新登录';
+        } else if (response.status === 403) {
+          errorMessage = '权限不足，需要管理员权限';
+        } else if (response.status === 413) {
+          errorMessage = '文件太大，请选择较小的文件';
+        } else {
+          errorMessage = `HTTP ${response.status} 错误: ${response.statusText}`;
+        }
+        
         message.error(`上传失败: ${errorMessage}`);
       }
     } catch (error) {

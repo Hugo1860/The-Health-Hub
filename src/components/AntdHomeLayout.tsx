@@ -294,11 +294,6 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
           flex: 'none',
           fontSize: inDrawer ? '16px' : '14px'
         }}
-        itemStyle={{
-          height: inDrawer ? '48px' : '40px',
-          lineHeight: inDrawer ? '48px' : '40px',
-          touchAction: 'manipulation'
-        }}
       />
 
       {/* 可滚动内容区域 */}

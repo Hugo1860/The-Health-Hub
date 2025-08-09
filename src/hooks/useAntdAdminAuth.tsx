@@ -32,7 +32,6 @@ export const ANTD_ADMIN_PERMISSIONS = {
 
   // 资源管理
   MANAGE_RESOURCES: 'manage_resources',
-  MANAGE_SLIDES: 'manage_slides',
 } as const;
 
 // 权限类型

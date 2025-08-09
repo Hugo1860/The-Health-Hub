@@ -99,7 +99,9 @@ export class QueryAnalyzer {
         // 限制缓存大小
         if (this.analysisCache.size > 100) {
           const firstKey = this.analysisCache.keys().next().value;
-          this.analysisCache.delete(firstKey);
+          if (firstKey) {
+            this.analysisCache.delete(firstKey);
+          }
         }
       }
 
@@ -192,7 +194,7 @@ export class QueryAnalyzer {
       }
     }
     
-    return [...new Set(indexes)]; // 去重
+    return Array.from(new Set(indexes)); // 去重
   }
 
   /**
@@ -210,7 +212,7 @@ export class QueryAnalyzer {
       }
     }
     
-    return [...new Set(tableScans)]; // 去重
+    return Array.from(new Set(tableScans)); // 去重
   }
 
   /**

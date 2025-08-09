@@ -122,7 +122,7 @@ export function VirtualScrollList<T>({
 }: VirtualScrollListProps<T>) {
   const [scrollTop, setScrollTop] = useState(0);
   const [isScrolling, setIsScrolling] = useState(false);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastScrollTop = useRef(0);
   const scrollDirection = useRef<'up' | 'down'>('down');
@@ -388,7 +388,7 @@ export const VirtualScrollUtils = {
     const outer = document.createElement('div');
     outer.style.visibility = 'hidden';
     outer.style.overflow = 'scroll';
-    outer.style.msOverflowStyle = 'scrollbar';
+    (outer.style as any).msOverflowStyle = 'scrollbar';
     document.body.appendChild(outer);
 
     const inner = document.createElement('div');

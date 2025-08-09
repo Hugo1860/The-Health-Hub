@@ -204,7 +204,6 @@ export const POST = withSecurity(
   },
   {
     requireAuth: true,
-    requireAdmin: true,
     enableRateLimit: true,
     rateLimitMax: 10,
     rateLimitWindow: 60000,

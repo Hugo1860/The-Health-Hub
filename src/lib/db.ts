@@ -3,7 +3,7 @@ import { join } from 'path';
 
 const DB_PATH = join(process.cwd(), 'data', 'local.db');
 
-let db: Database.Database;
+let db: Database.Database | null = null;
 
 try {
   db = new Database(DB_PATH, {
@@ -37,4 +37,4 @@ process.on('SIGINT', () => {
     process.exit(0);
 });
 
-export default db;
+export default db as Database.Database;

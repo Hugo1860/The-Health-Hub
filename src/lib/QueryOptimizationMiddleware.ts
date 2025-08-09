@@ -59,7 +59,7 @@ export class QueryOptimizationMiddleware {
     const startTime = performance.now();
     const opts = { ...this.options, ...customOptions };
     
-    let data: T;
+    let data: T | undefined;
     let cached = false;
     let queryAnalysis: any = null;
 
@@ -81,6 +81,11 @@ export class QueryOptimizationMiddleware {
         if (opts.enableCache && cacheKey && data) {
           queryCache.set(cacheKey, data, opts.cacheTTL);
         }
+      }
+
+      // 确保data已被赋值
+      if (data === undefined) {
+        throw new Error('Query returned undefined result');
       }
 
       const endTime = performance.now();

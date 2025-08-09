@@ -98,8 +98,7 @@ export default function RelatedResources({ audioId }: RelatedResourcesProps) {
         return '📄';
       case 'image':
         return '🖼️';
-      case 'slides':
-        return '📊';
+
       default:
         return '📎';
     }
@@ -113,8 +112,6 @@ export default function RelatedResources({ audioId }: RelatedResourcesProps) {
         return 'PDF文档';
       case 'image':
         return '图片';
-      case 'slides':
-        return '幻灯片';
       default:
         return '其他';
     }
@@ -170,7 +167,7 @@ export default function RelatedResources({ audioId }: RelatedResourcesProps) {
                 <option value="link">链接</option>
                 <option value="pdf">PDF文档</option>
                 <option value="image">图片</option>
-                <option value="slides">幻灯片</option>
+
               </select>
             </div>
           </div>

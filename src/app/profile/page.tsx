@@ -254,7 +254,7 @@ export default function ProfilePage() {
                         title={<span className="text-sm font-medium">{item.title}</span>}
                         description={
                           <div className="flex items-center gap-2">
-                            <Tag color="blue" size="small">{item.subject}</Tag>
+                            <Tag color="blue">{item.subject}</Tag>
                             <Text type="secondary" style={{ fontSize: 12 }}>
                               {new Date(item.uploadDate).toLocaleDateString('zh-CN')}
                             </Text>
@@ -295,7 +295,7 @@ export default function ProfilePage() {
                         title={<span className="text-sm font-medium">{item.title}</span>}
                         description={
                           <div className="flex items-center gap-2">
-                            <Tag color="red" size="small">{item.subject}</Tag>
+                            <Tag color="red">{item.subject}</Tag>
                             <Text type="secondary" style={{ fontSize: 12 }}>
                               {new Date(item.uploadDate).toLocaleDateString('zh-CN')}
                             </Text>

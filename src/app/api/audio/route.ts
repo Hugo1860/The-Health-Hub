@@ -4,6 +4,25 @@ import { z } from 'zod';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
+// Database row type for audios table
+type AudioRow = {
+  id: string;
+  title: string;
+  description?: string;
+  url?: string;
+  filename?: string;
+  uploadDate: string;
+  subject?: string;
+  tags?: string[] | string | null;
+  speaker?: string;
+  recordingDate?: string;
+  duration?: number;
+  coverImage?: string;
+  averageRating?: number;
+  ratingCount?: number;
+  commentCount?: number;
+};
+
 // Schema for validating query parameters
 const audioQuerySchema = z.object({
   category: z.string().optional(),
@@ -73,16 +92,28 @@ export async function GET(request: NextRequest) {
     const getAudiosStmt = db.prepare(baseQuery);
     const getTotalStmt = db.prepare(countQuery);
 
-    const audios = getAudiosStmt.all(params);
+    const audios = getAudiosStmt.all(params) as AudioRow[];
     const { total: totalItems } = getTotalStmt.get(countParams) as { total: number };
 
     console.log(`Found ${audios.length} audios, total: ${totalItems}`);
 
-    // 处理tags字段 - 确保它是数组格式
-    const processedAudios = audios.map(audio => ({
-      ...audio,
-      tags: typeof audio.tags === 'string' ? JSON.parse(audio.tags || '[]') : (audio.tags || [])
-    }));
+    // 处理 tags 字段 - 确保它是数组格式，并避免在非对象上展开
+    const processedAudios = audios.map((audio) => {
+      let normalizedTags: string[] = [];
+      if (Array.isArray(audio.tags)) {
+        normalizedTags = audio.tags as string[];
+      } else if (typeof audio.tags === 'string') {
+        try {
+          normalizedTags = JSON.parse(audio.tags || '[]');
+          if (!Array.isArray(normalizedTags)) normalizedTags = [];
+        } catch {
+          normalizedTags = [];
+        }
+      }
+
+      const { tags: _ignored, ...rest } = audio as Record<string, unknown>;
+      return { ...(rest as object), tags: normalizedTags } as Record<string, unknown> & { tags: string[] };
+    });
 
     const totalPages = Math.ceil(totalItems / limit);
 
@@ -106,12 +137,19 @@ export async function GET(request: NextRequest) {
     
     // 更详细的错误处理
     if (error && typeof error === 'object' && 'code' in error) {
-      if (error.code === 'SQLITE_ERROR') {
+      // 提取更安全的错误消息
+      const errorMessage = error instanceof Error
+        ? error.message
+        : typeof (error as any)?.message === 'string'
+          ? (error as any).message
+          : 'Database query failed';
+
+      if ((error as any).code === 'SQLITE_ERROR') {
         return NextResponse.json({ 
           error: { 
             code: 'DATABASE_ERROR',
             message: 'Database query failed',
-            details: error.message 
+            details: errorMessage
           } 
         }, { status: 500 });
       }

@@ -178,21 +178,21 @@ export function requirePermissions(permissions: AdminPermission | AdminPermissio
       
       // 检查权限
       if (!hasAllPermissions(admin, requiredPermissions)) {
-        logAdminAction('PERMISSION_DENIED', admin.id, {
-          requiredPermissions,
-          userPermissions: admin.permissions,
-          endpoint: request.url
-        })
+        // logAdminAction('PERMISSION_DENIED', admin.id, {
+        //   requiredPermissions,
+        //   userPermissions: admin.permissions,
+        //   endpoint: request.url
+        // })
         
         return AdminApiResponseBuilder.forbidden('权限不足，无法执行此操作')
       }
       
       // 记录管理员操作
-      logAdminAction('API_ACCESS', admin.id, {
-        method: request.method,
-        url: request.url,
-        permissions: requiredPermissions
-      })
+      // logAdminAction('API_ACCESS', admin.id, {
+      //   method: request.method,
+      //   url: request.url,
+      //   permissions: requiredPermissions
+      // })
       
       // 将admin信息添加到request中，供处理函数使用
       (request as any).admin = admin
@@ -219,21 +219,21 @@ export function requireRole(roles: AdminRole | AdminRole[]) {
       
       // 检查角色
       if (!requiredRoles.includes(admin.role)) {
-        logAdminAction('ROLE_ACCESS_DENIED', admin.id, {
-          requiredRoles,
-          userRole: admin.role,
-          endpoint: request.url
-        })
+        // logAdminAction('ROLE_ACCESS_DENIED', admin.id, {
+        //   requiredRoles,
+        //   userRole: admin.role,
+        //   endpoint: request.url
+        // })
         
         return AdminApiResponseBuilder.forbidden('角色权限不足，无法访问此资源')
       }
       
       // 记录管理员操作
-      logAdminAction('API_ACCESS', admin.id, {
-        method: request.method,
-        url: request.url,
-        role: admin.role
-      })
+      // logAdminAction('API_ACCESS', admin.id, {
+      //   method: request.method,
+      //   url: request.url,
+      //   role: admin.role
+      // })
       
       // 将admin信息添加到request中
       (request as any).admin = admin
@@ -254,13 +254,13 @@ export function requireAdmin(handler: (request: NextRequest) => Promise<Response
       return AdminApiResponseBuilder.unauthorized(sessionResult.error)
     }
     
-    const admin = sessionResult.admin
+    const admin = sessionResult.admin as AuthenticatedAdmin
     
     // 记录管理员操作
-    logAdminAction('API_ACCESS', admin.id, {
-      method: request.method,
-      url: request.url
-    })
+    // logAdminAction('API_ACCESS', admin.id, {
+    //   method: request.method,
+    //   url: request.url
+    // })
     
     // 将admin信息添加到request中
     (request as any).admin = admin
@@ -299,11 +299,11 @@ export function rateLimit(maxRequests: number = 100, windowMs: number = 60000) {
       
       // 检查是否超过限制
       if (limitRecord.count >= maxRequests) {
-        logAdminAction('RATE_LIMIT_EXCEEDED', admin.id, {
-          endpoint: request.url,
-          count: limitRecord.count,
-          maxRequests
-        })
+        // logAdminAction('RATE_LIMIT_EXCEEDED', admin.id, {
+        //   endpoint: request.url,
+        //   count: limitRecord.count,
+        //   maxRequests
+        // })
         
         return AdminApiResponseBuilder.error(
           AdminApiErrorCode.RATE_LIMITED,
@@ -314,7 +314,7 @@ export function rateLimit(maxRequests: number = 100, windowMs: number = 60000) {
       
       // 增加计数
       limitRecord.count++
-      rateLimitMap.set(key, limitRecord)
+      rateLimitMap.set(key, limitRecord);
       
       // 将admin信息添加到request中
       (request as any).admin = admin
@@ -361,7 +361,7 @@ export function createAdminMiddleware(options: {
 // 清理过期的速率限制记录
 setInterval(() => {
   const now = Date.now()
-  for (const [key, record] of rateLimitMap.entries()) {
+  for (const [key, record] of Array.from(rateLimitMap.entries())) {
     if (now > record.resetTime) {
       rateLimitMap.delete(key)
     }

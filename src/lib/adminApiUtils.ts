@@ -203,7 +203,8 @@ export function parseSearchParams(request: NextRequest): SearchParams {
   
   // 解析过滤器参数
   const filters: Record<string, any> = {}
-  for (const [key, value] of searchParams.entries()) {
+  const entries = Array.from(searchParams.entries())
+  for (const [key, value] of entries) {
     if (key.startsWith('filter_')) {
       const filterKey = key.replace('filter_', '')
       filters[filterKey] = value
@@ -397,7 +398,7 @@ export function logAdminAction(
   action: string,
   userId: string,
   details?: Record<string, any>
-) {
+): void {
   const logEntry = {
     timestamp: new Date().toISOString(),
     action,

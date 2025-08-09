@@ -94,7 +94,7 @@ export class UserBehaviorAnalyzer {
 
     try {
       // 获取用户的音频信息
-      const audioIds = [...new Set(history.map(b => b.audioId))];
+      const audioIds = Array.from(new Set(history.map(b => b.audioId)));
       const audios = await Promise.all(
         audioIds.map(id => optimizedDb.getAudioById(id))
       );
@@ -385,7 +385,7 @@ export class UserBehaviorAnalyzer {
    * 获取历史记录中的音频信息
    */
   private async getAudiosForHistory(history: UserBehavior[]): Promise<any[]> {
-    const audioIds = [...new Set(history.map(b => b.audioId))];
+    const audioIds = Array.from(new Set(history.map(b => b.audioId)));
     const audios = await Promise.all(
       audioIds.map(id => optimizedDb.getAudioById(id))
     );
@@ -426,7 +426,7 @@ export class UserBehaviorAnalyzer {
           { useCache: true, cacheTTL: 300000 }
         );
 
-        for (const audio of timeBasedAudios) {
+        for (const audio of timeBasedAudios as any[]) {
           predictions.push({ audioId: audio.id, score: 0.3 });
         }
       }
@@ -440,7 +440,7 @@ export class UserBehaviorAnalyzer {
           { useCache: true, cacheTTL: 300000 }
         );
 
-        for (const audio of genreBasedAudios) {
+        for (const audio of genreBasedAudios as any[]) {
           predictions.push({ audioId: audio.id, score: 0.2 });
         }
       }

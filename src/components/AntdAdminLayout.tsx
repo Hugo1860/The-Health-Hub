@@ -88,12 +88,6 @@ export default function AntdAdminLayout({ children }: AntdAdminLayoutProps) {
       disabled: !hasPermission(ANTD_ADMIN_PERMISSIONS.MANAGE_RESOURCES),
     },
     {
-      key: '/admin/slides',
-      icon: <FileImageOutlined />,
-      label: '幻灯片管理',
-      disabled: !hasPermission(ANTD_ADMIN_PERMISSIONS.MANAGE_SLIDES),
-    },
-    {
       key: '/admin/users',
       icon: <UserOutlined />,
       label: '用户管理',
