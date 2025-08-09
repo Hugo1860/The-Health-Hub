@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getAudioMarkers, createMarker } from '@/lib/chapters';
+// Markers functionality removed
 
 // GET - 获取音频的标记列表
 export async function GET(request: NextRequest) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { deleteMarker, readMarkers } from '@/lib/chapters';
+// Markers functionality removed
 
 // DELETE - 删除标记
 export async function DELETE(

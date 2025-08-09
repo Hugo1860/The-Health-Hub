@@ -54,11 +54,10 @@ import AudioStats from '../../../components/AudioStats'
 import AudioHistory from '../../../components/AudioHistory'
 import AudioActions from '../../../components/AudioActions'
 import AudioMetadata from '../../../components/AudioMetadata'
-import ChapterList from '../../../components/ChapterList'
+
 import TimeMarkers from '../../../components/TimeMarkers'
-import ChapterManager from '../../../components/ChapterManager'
-import TranscriptionManager from '../../../components/TranscriptionManager'
-import TranscriptionViewer from '../../../components/TranscriptionViewer'
+
+
 import RelatedResources from '../../../components/RelatedResources'
 
 
@@ -726,26 +725,8 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
               {/* 播放历史记录 */}
               <AudioHistory audioId={audio.id} onResumePlay={handlePlay} />
               
-              {/* 章节和时间戳 */}
+              {/* 时间戳 */}
               <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-                <Col xs={24} lg={12}>
-                  <Card
-                    title={
-                      <Space>
-                        <FileTextOutlined style={{ color: '#00529B' }} />
-                        <span>章节列表</span>
-                      </Space>
-                    }
-                    size={isMobile ? "small" : "default"}
-                    style={{ height: '100%' }}
-                  >
-                    <ChapterList 
-                      audioId={audio.id} 
-                      currentTime={currentTime}
-                      onChapterClick={handleSeekTo}
-                    />
-                  </Card>
-                </Col>
                 <Col xs={24} lg={12}>
                   <Card
                     title={
@@ -767,13 +748,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                 </Col>
               </Row>
               
-              {/* 转录文本查看器 */}
-              <TranscriptionViewer 
-                audioId={audio.id}
-                currentTime={currentTime}
-                onSegmentClick={handleSeekTo}
-                searchQuery={searchQuery}
-              />
+
               
 
               {/* 转录文本查看器 */}

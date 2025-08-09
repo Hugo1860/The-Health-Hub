@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 
-export interface ChapterMarker {
+export interface TimeMarker {
   id: string;
   audioId: string;
   title: string;
   description?: string;
-  type: 'chapter' | 'highlight' | 'note';
+  type: 'highlight' | 'note';
   time: number;
   createdBy: string;
   createdAt: string;
@@ -29,13 +29,13 @@ export default function TimeMarkers({
   onAddMarker 
 }: TimeMarkersProps) {
   const { data: session } = useSession();
-  const [markers, setMarkers] = useState<ChapterMarker[]>([]);
+  const [markers, setMarkers] = useState<TimeMarker[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMarker, setNewMarker] = useState<{
     title: string;
     description: string;
-    type: 'chapter' | 'highlight' | 'note';
+    type: 'highlight' | 'note';
     time: number;
   }>({
     title: '',
@@ -144,12 +144,6 @@ export default function TimeMarkers({
 
   const getMarkerIcon = (type: string) => {
     switch (type) {
-      case 'chapter':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        );
       case 'highlight':
         return (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,8 +163,6 @@ export default function TimeMarkers({
 
   const getMarkerColor = (type: string) => {
     switch (type) {
-      case 'chapter':
-        return 'text-blue-600 bg-blue-50 border-blue-200';
       case 'highlight':
         return 'text-yellow-600 bg-yellow-50 border-yellow-200';
       case 'note':
@@ -226,13 +218,12 @@ export default function TimeMarkers({
                   value={newMarker.type}
                   onChange={(e) => setNewMarker({
                     ...newMarker,
-                    type: e.target.value as 'chapter' | 'highlight' | 'note'
+                    type: e.target.value as 'highlight' | 'note'
                   })}
                   className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="highlight">重点</option>
                   <option value="note">笔记</option>
-                  <option value="chapter">章节</option>
                 </select>
               </div>
               <div>

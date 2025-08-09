@@ -14,7 +14,6 @@ export interface AudioFile {
   speaker?: string;
   recordingDate?: string;
   duration?: number;
-  transcription?: string;
   coverImage?: string; // 封面图片URL
 }
 
