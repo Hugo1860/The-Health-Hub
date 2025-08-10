@@ -119,7 +119,7 @@ export default function TestLogoPage() {
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
             }}
             headStyle={{ color: 'white', borderBottom: '1px solid rgba(255,255,255,0.2)' }}
-            bodyStyle={{ background: 'transparent' }}
+            styles={{ body: { background: 'transparent' } }}
           >
             <Space direction="vertical" size="large" style={{ width: '100%', alignItems: 'center' }}>
               <div style={{ textAlign: 'center' }}>

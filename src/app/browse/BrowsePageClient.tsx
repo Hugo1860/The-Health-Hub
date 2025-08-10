@@ -1,22 +1,18 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAudioStore } from '../../store/audioStore';
 import AntdHomeLayout from '../../components/AntdHomeLayout';
-import { useState, useEffect } from 'react';
-import { Alert, Button, Skeleton, Card, Empty, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Typography, Input, Select, Skeleton } from 'antd';
+import { ReloadOutlined, ExclamationCircleOutlined, PlayCircleOutlined, PauseCircleOutlined } from '@ant-design/icons';
+import ErrorBoundary from '../../components/ErrorBoundary';
+import ClientOnly from '../../components/ClientOnly';
+import SafeTimeDisplay from '../../components/SafeTimeDisplay';
 
 const { Title, Text } = Typography;
-import { ReloadOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import { createErrorState, logError, networkMonitor, type ErrorState } from '../../lib/apiErrorHandler';
-import { ComponentErrorBoundary } from '../../components/ErrorBoundary';
-import { 
-    AudioGridSkeleton, 
-    FilterControlsSkeleton, 
-    SmartLoader,
-    DelayedLoader 
-} from '../../components/LoadingStates';
+const { Search } = Input;
+const { Option } = Select;
 
 // --- Types ---
 interface AudioFile {
@@ -29,6 +25,8 @@ interface AudioFile {
   subject: string;
   tags: string[];
   coverImage?: string;
+  playCount?: number;
+  duration?: number;
 }
 
 interface Category {
@@ -45,13 +43,17 @@ interface PaginationInfo {
     hasPrevPage?: boolean;
 }
 
-interface LoadingState {
-    isLoading: boolean;
-    loadingText?: string;
-}
+// 默认分类数据
+const DEFAULT_CATEGORIES: Category[] = [
+    { id: 'cardiology', name: '心血管' },
+    { id: 'neurology', name: '神经科' },
+    { id: 'internal-medicine', name: '内科学' },
+    { id: 'surgery', name: '外科' },
+    { id: 'pediatrics', name: '儿科' },
+    { id: 'other', name: '其他' },
+];
 
 // --- UI Components ---
-
 const BrowseHeader = () => (
   <div className="mb-8 text-center">
     <h1 className="text-3xl font-bold text-gray-800 mb-2">浏览音频内容</h1>
@@ -61,51 +63,28 @@ const BrowseHeader = () => (
 
 const ErrorDisplay = ({ 
   error, 
-  onRetry, 
-  isOnline 
+  onRetry 
 }: { 
-  error: ErrorState; 
+  error: string; 
   onRetry: () => void; 
-  isOnline: boolean;
 }) => (
   <div className="flex flex-col items-center justify-center py-16">
     <Alert
-      message={error.type === 'network' && !isOnline ? "网络连接已断开" : "页面加载失败"}
-      description={
-        <div>
-          <p>{error.message}</p>
-          {error.type === 'network' && !isOnline && (
-            <p className="mt-2 text-sm text-gray-500">
-              请检查网络连接，连接恢复后将自动重试
-            </p>
-          )}
-        </div>
-      }
+      message="页面加载失败"
+      description={error}
       type="error"
       showIcon
       icon={<ExclamationCircleOutlined />}
       className="mb-4 max-w-md"
     />
-    {error.retryable && isOnline && (
-      <Button 
-        type="primary" 
-        icon={<ReloadOutlined />} 
-        onClick={onRetry}
-        size="large"
-      >
-        重试
-      </Button>
-    )}
-    {error.type === 'auth' && (
-      <Button 
-        type="default" 
-        onClick={() => window.location.href = '/auth/signin'}
-        size="large"
-        className="ml-2"
-      >
-        重新登录
-      </Button>
-    )}
+    <Button 
+      type="primary" 
+      icon={<ReloadOutlined />} 
+      onClick={onRetry}
+      size="large"
+    >
+      重试
+    </Button>
   </div>
 );
 
@@ -128,80 +107,76 @@ const EmptyState = ({ hasFilters, onClearFilters }: { hasFilters: boolean; onCle
   </div>
 );
 
-const FilterControls = ({ categories, initialSearch, initialCategory }: {
-    categories: Category[];
-    initialSearch: string;
-    initialCategory: string;
+const FilterControls = ({ 
+  categories, 
+  onSearch, 
+  onCategoryChange,
+  onClear,
+  loading 
+}: {
+  categories: Category[];
+  onSearch: (value: string) => void;
+  onCategoryChange: (value: string) => void;
+  onClear: () => void;
+  loading: boolean;
 }) => {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const [searchTerm, setSearchTerm] = useState(initialSearch);
-    const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
 
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            const params = new URLSearchParams(searchParams.toString());
-            if (searchTerm) {
-                params.set('search', searchTerm);
-            } else {
-                params.delete('search');
-            }
-            if (selectedCategory) {
-                params.set('category', selectedCategory);
-            } else {
-                params.delete('category');
-            }
-            params.set('page', '1');
-            router.push(`/browse?${params.toString()}`);
-        }, 500);
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    onSearch(value);
+  };
 
-        return () => clearTimeout(handler);
-    }, [searchTerm, selectedCategory, router, searchParams]);
+  const handleCategoryChange = (value: string) => {
+    setSelectedCategory(value);
+    onCategoryChange(value);
+  };
 
-    const clearFilters = () => {
-        setSearchTerm('');
-        setSelectedCategory('');
-    };
+  const handleClear = () => {
+    setSearchTerm('');
+    setSelectedCategory('');
+    onClear();
+  };
 
-    return (
-        <Card className="mb-6" style={{ borderRadius: 12 }}>
-            <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
-                <div className="flex-1">
-                    <input
-                        type="search"
-                        placeholder="搜索音频标题、描述或标签..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        style={{ fontSize: 14 }}
-                    />
-                </div>
-                <div className="flex gap-3">
-                    <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="px-4 py-3 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-w-[160px]"
-                        style={{ fontSize: 14 }}
-                    >
-                        <option value="">全部分类</option>
-                        {categories.map((category: Category) => (
-                            <option key={category.id} value={category.name}>{category.name}</option>
-                        ))}
-                    </select>
-                    <Button
-                        onClick={clearFilters}
-                        style={{ 
-                            borderRadius: 8,
-                            height: 48,
-                            fontSize: 14
-                        }}
-                    >
-                        清除
-                    </Button>
-                </div>
-            </div>
-        </Card>
-    );
+  return (
+    <Card className="mb-6" style={{ borderRadius: 12 }}>
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center">
+        <div className="flex-1">
+          <Search
+            placeholder="搜索音频标题、描述或标签..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onSearch={handleSearch}
+            loading={loading}
+            size="large"
+            style={{ borderRadius: 8 }}
+          />
+        </div>
+        <div className="flex gap-3">
+          <Select
+            value={selectedCategory}
+            onChange={handleCategoryChange}
+            placeholder="选择分类"
+            size="large"
+            style={{ minWidth: 160, borderRadius: 8 }}
+            allowClear
+          >
+            {categories.map((category: Category) => (
+              <Option key={category.id} value={category.name}>{category.name}</Option>
+            ))}
+          </Select>
+          <Button
+            onClick={handleClear}
+            size="large"
+            style={{ borderRadius: 8 }}
+          >
+            清除
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
 };
 
 const AudioCard = ({ audio, isPlaying, onPlayClick }: {
@@ -210,6 +185,7 @@ const AudioCard = ({ audio, isPlaying, onPlayClick }: {
     onPlayClick: () => void;
 }) => {
     const router = useRouter();
+    
     return (
         <Card
             hoverable
@@ -228,9 +204,7 @@ const AudioCard = ({ audio, isPlaying, onPlayClick }: {
                         />
                     ) : (
                         <div className="flex flex-col items-center justify-center text-gray-400">
-                            <svg className="w-15 h-15 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: '60px', height: '60px' }}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />
-                            </svg>
+                            <PlayCircleOutlined style={{ fontSize: 60, marginBottom: 8 }} />
                             <span className="text-xs">音频内容</span>
                         </div>
                     )}
@@ -242,17 +216,7 @@ const AudioCard = ({ audio, isPlaying, onPlayClick }: {
                             type="primary"
                             shape="circle"
                             size="large"
-                            icon={
-                                isPlaying ? (
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M5 4h3v12H5V4zm7 0h3v12h-3V4z"/>
-                                    </svg>
-                                ) : (
-                                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M4.52 16.89A.5.5 0 0 1 4 16.5v-13a.5.5 0 0 1 .74-.43l11 6.5a.5.5 0 0 1 0 .86l-11 6.5a.5.5 0 0 1-.22.03z"/>
-                                    </svg>
-                                )
-                            }
+                            icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
                             className="transform scale-0 group-hover:scale-100 transition-transform duration-300"
                             style={{ 
                                 backgroundColor: '#13C2C2',
@@ -266,11 +230,13 @@ const AudioCard = ({ audio, isPlaying, onPlayClick }: {
             <div className="p-4">
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-full">
-                        {audio.subject}
+                        {audio.subject || '未分类'}
                     </span>
-                    <span className="text-xs text-gray-400">
-                        {new Date(audio.uploadDate).toLocaleDateString('zh-CN')}
-                    </span>
+                    <ClientOnly>
+                      <span className="text-xs text-gray-400">
+                          <SafeTimeDisplay timestamp={audio.uploadDate} format="date" />
+                      </span>
+                    </ClientOnly>
                 </div>
                 <h3 
                     className="text-base font-semibold text-gray-800 mb-2 line-clamp-2" 
@@ -283,16 +249,23 @@ const AudioCard = ({ audio, isPlaying, onPlayClick }: {
                     {audio.title}
                 </h3>
                 <p className="text-sm text-gray-500 mb-3 line-clamp-2" style={{ minHeight: '2.5rem' }}>
-                    {audio.description}
+                    {audio.description || '暂无描述'}
                 </p>
-                <Button
-                    type="link"
-                    onClick={() => router.push(`/audio/${audio.id}`)}
-                    className="p-0 h-auto text-blue-600 hover:text-blue-800"
-                    style={{ fontSize: 14 }}
-                >
-                    查看详情 →
-                </Button>
+                <div className="flex justify-between items-center">
+                  <Button
+                      type="link"
+                      onClick={() => router.push(`/audio/${audio.id}`)}
+                      className="p-0 h-auto text-blue-600 hover:text-blue-800"
+                      style={{ fontSize: 14 }}
+                  >
+                      查看详情 →
+                  </Button>
+                  {audio.playCount !== undefined && (
+                    <span className="text-xs text-gray-400">
+                      {audio.playCount} 播放
+                    </span>
+                  )}
+                </div>
             </div>
         </Card>
     );
@@ -323,23 +296,17 @@ const AudioGrid = ({ audios }: { audios: AudioFile[] }) => {
     );
 };
 
-const Pagination = ({ pagination }: { pagination: PaginationInfo }) => {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-
-    const handlePageChange = (page: number) => {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set('page', page.toString());
-        router.push(`/browse?${params.toString()}`);
-    };
-
+const Pagination = ({ pagination, onPageChange }: { 
+  pagination: PaginationInfo;
+  onPageChange: (page: number) => void;
+}) => {
     if (pagination.totalPages <= 1) return null;
 
     return (
         <div className="flex justify-center mt-8">
             <div className="flex items-center gap-2">
                 <Button
-                    onClick={() => handlePageChange(pagination.page - 1)}
+                    onClick={() => onPageChange(pagination.page - 1)}
                     disabled={!pagination.hasPrevPage}
                     style={{ borderRadius: 8 }}
                 >
@@ -349,7 +316,7 @@ const Pagination = ({ pagination }: { pagination: PaginationInfo }) => {
                     第 {pagination.page} 页，共 {pagination.totalPages} 页
                 </span>
                 <Button
-                    onClick={() => handlePageChange(pagination.page + 1)}
+                    onClick={() => onPageChange(pagination.page + 1)}
                     disabled={!pagination.hasNextPage}
                     style={{ borderRadius: 8 }}
                 >
@@ -361,100 +328,95 @@ const Pagination = ({ pagination }: { pagination: PaginationInfo }) => {
 }
 
 // --- Main Client Component ---
-export default function BrowsePageClient({ 
-    initialCategories, 
-    initialAudios, 
-    initialPagination, 
-    initialSearch, 
-    initialCategory,
-    initialError 
-}: {
-    initialCategories: Category[];
-    initialAudios: AudioFile[];
-    initialPagination: PaginationInfo;
-    initialSearch: string;
-    initialCategory: string;
-    initialError?: ErrorState;
-}) {
-    const [categories, setCategories] = useState<Category[]>(initialCategories);
-    const [audios, setAudios] = useState<AudioFile[]>(initialAudios);
-    const [pagination, setPagination] = useState<PaginationInfo>(initialPagination);
-    const [error, setError] = useState<ErrorState | null>(initialError || null);
-    const [loading, setLoading] = useState<LoadingState>({ isLoading: false });
-    const [retryCount, setRetryCount] = useState(0);
-    const [isOnline, setIsOnline] = useState(true);
+export default function BrowsePageClient({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+    const [categories] = useState<Category[]>(DEFAULT_CATEGORIES);
+    const [audios, setAudios] = useState<AudioFile[]>([]);
+    const [pagination, setPagination] = useState<PaginationInfo>({ page: 1, limit: 12, totalItems: 0, totalPages: 0 });
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
 
     const router = useRouter();
-    const searchParams = useSearchParams();
 
-    // 网络状态监听
-    useEffect(() => {
-        const handleNetworkChange = (online: boolean) => {
-            setIsOnline(online);
-            if (online && error?.type === 'network') {
-                handleRetry();
-            }
-        };
-
-        networkMonitor.addListener(handleNetworkChange);
-        return () => networkMonitor.removeListener(handleNetworkChange);
-    }, [error]);
-
-    // 重试逻辑
-    const handleRetry = async () => {
-        if (retryCount >= 3) {
-            const maxRetriesError = createErrorState(
-                { message: "多次重试失败，请稍后再试或联系技术支持" },
-                '重试失败'
-            );
-            maxRetriesError.retryable = false;
-            setError(maxRetriesError);
-            logError(maxRetriesError, { retryCount, context: 'max_retries_exceeded' });
-            return;
-        }
-
-        setLoading({ isLoading: true, loadingText: "正在重新加载..." });
+    // 获取音频数据
+    const fetchAudios = async (search?: string, category?: string, page: number = 1) => {
+        setLoading(true);
         setError(null);
-        setRetryCount(prev => prev + 1);
-
+        
         try {
-            const delay = 1000 * Math.pow(2, retryCount);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            window.location.reload();
+            const params = new URLSearchParams();
+            if (search) params.set('search', search);
+            if (category) params.set('category', category);
+            params.set('page', page.toString());
+            params.set('limit', '12');
+
+            const response = await fetch(`/api/audio?${params.toString()}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                setAudios(data.data || []);
+                setPagination(data.pagination || { page: 1, limit: 12, totalItems: 0, totalPages: 0 });
+            } else {
+                throw new Error(data.error || '获取音频数据失败');
+            }
         } catch (err) {
-            const retryError = createErrorState(err, '重试操作');
-            setError(retryError);
-            logError(retryError, { retryCount, originalError: error });
+            console.error('获取音频数据失败:', err);
+            setError(err instanceof Error ? err.message : '获取音频数据失败');
+            setAudios([]);
+            setPagination({ page: 1, limit: 12, totalItems: 0, totalPages: 0 });
         } finally {
-            setLoading({ isLoading: false });
+            setLoading(false);
         }
     };
 
-    const handleClearFilters = () => {
-        router.push('/browse');
+    // 初始化数据
+    useEffect(() => {
+        fetchAudios();
+    }, []);
+
+    // 处理搜索
+    const handleSearch = (value: string) => {
+        setSearchTerm(value);
+        fetchAudios(value, selectedCategory, 1);
     };
 
-    const hasFilters = Boolean(initialSearch || initialCategory);
+    // 处理分类变化
+    const handleCategoryChange = (value: string) => {
+        setSelectedCategory(value);
+        fetchAudios(searchTerm, value, 1);
+    };
 
-    if (loading.isLoading) {
+    // 处理清除筛选
+    const handleClearFilters = () => {
+        setSearchTerm('');
+        setSelectedCategory('');
+        fetchAudios('', '', 1);
+    };
+
+    // 处理分页
+    const handlePageChange = (page: number) => {
+        fetchAudios(searchTerm, selectedCategory, page);
+    };
+
+    // 重试
+    const handleRetry = () => {
+        fetchAudios(searchTerm, selectedCategory, pagination.page);
+    };
+
+    const hasFilters = Boolean(searchTerm || selectedCategory);
+
+    if (error) {
         return (
             <AntdHomeLayout>
                 <div className="container mx-auto px-4 py-8">
                     <BrowseHeader />
-                    <DelayedLoader delay={200}>
-                        <SmartLoader text={loading.loadingText} />
-                    </DelayedLoader>
-                </div>
-            </AntdHomeLayout>
-        );
-    }
-
-    if (error?.hasError) {
-        return (
-            <AntdHomeLayout>
-                <div className="container mx-auto px-4 py-8">
-                    <BrowseHeader />
-                    <ErrorDisplay error={error} onRetry={handleRetry} isOnline={isOnline} />
+                    <ErrorDisplay error={error} onRetry={handleRetry} />
                 </div>
             </AntdHomeLayout>
         );
@@ -465,25 +427,29 @@ export default function BrowsePageClient({
             <div style={{ maxWidth: 1400, margin: '0 auto', padding: '24px' }}>
                 <BrowseHeader />
                 
-                <ComponentErrorBoundary>
-                    <Suspense fallback={<FilterControlsSkeleton />}>
-                        <FilterControls
-                            categories={categories}
-                            initialSearch={initialSearch}
-                            initialCategory={initialCategory}
-                        />
-                    </Suspense>
-                </ComponentErrorBoundary>
+                <ErrorBoundary>
+                    <FilterControls
+                        categories={categories}
+                        onSearch={handleSearch}
+                        onCategoryChange={handleCategoryChange}
+                        onClear={handleClearFilters}
+                        loading={loading}
+                    />
+                </ErrorBoundary>
                 
-                <ComponentErrorBoundary>
-                    {audios.length > 0 ? (
+                <ErrorBoundary>
+                    {loading ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {Array.from({ length: 12 }).map((_, i) => (
+                                <Card key={i} loading style={{ borderRadius: 12 }}>
+                                    <Skeleton active />
+                                </Card>
+                            ))}
+                        </div>
+                    ) : audios.length > 0 ? (
                         <>
-                            <Suspense fallback={<AudioGridSkeleton />}>
-                                <AudioGrid audios={audios} />
-                            </Suspense>
-                            <Suspense fallback={<div className="flex justify-center mt-8"><Skeleton.Button active /></div>}>
-                                <Pagination pagination={pagination} />
-                            </Suspense>
+                            <AudioGrid audios={audios} />
+                            <Pagination pagination={pagination} onPageChange={handlePageChange} />
                         </>
                     ) : (
                         <EmptyState 
@@ -491,7 +457,7 @@ export default function BrowsePageClient({
                             onClearFilters={handleClearFilters} 
                         />
                     )}
-                </ComponentErrorBoundary>
+                </ErrorBoundary>
             </div>
         </AntdHomeLayout>
     );

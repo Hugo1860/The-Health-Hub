@@ -16,9 +16,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const markers = getAudioMarkers(audioId);
-    
-    return NextResponse.json(markers);
+    // Markers functionality has been removed
+    return NextResponse.json([]);
   } catch (error) {
     console.error('Error fetching markers:', error);
     return NextResponse.json(
@@ -66,16 +65,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const newMarker = createMarker({
-      audioId,
-      title,
-      time,
-      description,
-      type,
-      createdBy: session.user.id
-    });
-
-    return NextResponse.json(newMarker, { status: 201 });
+    // Markers functionality has been removed
+    return NextResponse.json(
+      { error: '标记功能暂时不可用' },
+      { status: 501 }
+    );
   } catch (error) {
     console.error('Error creating marker:', error);
     return NextResponse.json(

@@ -45,20 +45,9 @@ import {
   FileTextOutlined,
   SearchOutlined
 } from '@ant-design/icons'
-import CommentSection from '../../../components/CommentSection'
-import StarRating from '../../../components/StarRating'
 import { useAuth } from '../../../contexts/AuthContext'
-import QASection from '../../../components/QASection'
-import RelatedAudios from '../../../components/RelatedAudios'
-import AudioStats from '../../../components/AudioStats'
-import AudioHistory from '../../../components/AudioHistory'
-import AudioActions from '../../../components/AudioActions'
-import AudioMetadata from '../../../components/AudioMetadata'
-
-import TimeMarkers from '../../../components/TimeMarkers'
-
-
-import RelatedResources from '../../../components/RelatedResources'
+import ClientOnly from '../../../components/ClientOnly'
+import SafeTimeDisplay from '../../../components/SafeTimeDisplay'
 
 
 const { Content } = Layout
@@ -490,7 +479,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                             {audio.subject || '未分类'}
                           </Tag>
                           <Tag color="green" icon={<CalendarOutlined />}>
-                            {new Date(audio.uploadDate).toLocaleDateString('zh-CN')}
+                            <SafeTimeDisplay timestamp={audio.uploadDate} format="date" />
                           </Tag>
                           {audio.duration && (
                             <Tag color="orange" icon={<ClockCircleOutlined />}>
@@ -528,7 +517,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                         <Descriptions.Item 
                           label={<Space><ClockCircleOutlined />上传时间</Space>}
                         >
-                          {new Date(audio.uploadDate).toLocaleString('zh-CN')}
+                          <SafeTimeDisplay timestamp={audio.uploadDate} format="datetime" />
                         </Descriptions.Item>
                         {audio.tags && audio.tags.length > 0 && (
                           <Descriptions.Item 
@@ -678,7 +667,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
               </Card>
 
               {/* 转录文本 */}
-              {audio.transcription && (
+              {false && (
                 <Card 
                   title={
                     <Space>
@@ -693,7 +682,7 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                     <Space>
                       <Statistic 
                         title="字数" 
-                        value={audio.transcription.length} 
+                        value={0} 
                         suffix="字"
                         style={{ minWidth: 80 }}
                       />
@@ -715,174 +704,75 @@ export default function AudioDetailPage({ params }: { params: Promise<{ id: stri
                         color: '#262626'
                       }}
                       dangerouslySetInnerHTML={{
-                        __html: searchQuery ? getHighlightedText(audio.transcription, searchQuery) : audio.transcription
+                        __html: "转录功能暂时不可用"
                       }}
                     />
                   </div>
                 </Card>
               )}
 
-              {/* 播放历史记录 */}
-              <AudioHistory audioId={audio.id} onResumePlay={handlePlay} />
-              
-              {/* 时间戳 */}
-              <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-                <Col xs={24} lg={12}>
-                  <Card
-                    title={
-                      <Space>
-                        <ClockCircleOutlined style={{ color: '#00529B' }} />
-                        <span>时间标记</span>
-                      </Space>
-                    }
-                    size={isMobile ? "small" : "default"}
-                    style={{ height: '100%' }}
-                  >
-                    <TimeMarkers 
-                      audioId={audio.id}
-                      currentTime={currentTime}
-                      onMarkerClick={handleSeekTo}
-                      onAddMarker={(time) => console.log('Added marker at', time)}
-                    />
-                  </Card>
-                </Col>
-              </Row>
-              
+              {/* 音频统计信息 */}
+              <ClientOnly>
+                <Card
+                  title={
+                    <Space>
+                      <SoundOutlined style={{ color: '#00529B' }} />
+                      <span>音频统计</span>
+                    </Space>
+                  }
+                  style={{ marginBottom: 24 }}
+                  size={isMobile ? "small" : "default"}
+                >
+                  <Row gutter={16}>
+                    <Col xs={12} sm={6}>
+                      <Statistic
+                        title="播放次数"
+                        value={0}
+                        prefix={<PlayCircleOutlined />}
+                      />
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Statistic
+                        title="文件大小"
+                        value={0}
+                        suffix="MB"
+                      />
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <div>
+                        <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '4px' }}>上传时间</div>
+                        <SafeTimeDisplay timestamp={audio.uploadDate} format="date" />
+                      </div>
+                    </Col>
+                    <Col xs={12} sm={6}>
+                      <Statistic
+                        title="音频时长"
+                        value={audio.duration ? `${Math.floor(audio.duration / 60)}:${(audio.duration % 60).toFixed(0).padStart(2, '0')}` : '--'}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+              </ClientOnly>
 
-              
-
-              {/* 转录文本查看器 */}
-              <Card
-                title={
-                  <Space>
-                    <FileTextOutlined style={{ color: '#00529B' }} />
-                    <span>智能转录</span>
-                    <Tag color="gold">AI增强</Tag>
-                  </Space>
-                }
-                style={{ marginBottom: 24 }}
-                size={isMobile ? "small" : "default"}
-              >
-                <TranscriptionViewer 
-                  audioId={audio.id}
-                  currentTime={currentTime}
-                  onSegmentClick={handleSeekTo}
-                  searchQuery={searchQuery}
-                />
-              </Card>
-              
-
-              {/* 播放历史记录 */}
-              <Card
-                title={
-                  <Space>
-                    <ClockCircleOutlined style={{ color: '#00529B' }} />
-                    <span>播放历史</span>
-                  </Space>
-                }
-                style={{ marginBottom: 24 }}
-                size={isMobile ? "small" : "default"}
-              >
-                <AudioHistory audioId={audio.id} onResumePlay={handlePlay} />
-              </Card>
-
-              {/* 管理员功能区域 */}
-              <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-                <Col xs={24} lg={8}>
-                  <Card
-                    title="章节管理"
-                    size="small"
-                    style={{ height: '100%' }}
-                  >
-                    <ChapterManager audioId={audio.id} />
-                  </Card>
-                </Col>
-
-                <Col xs={24} lg={8}>
-                  <Card
-                    title="转录管理"
-                    size="small"
-                    style={{ height: '100%' }}
-                  >
-                    <TranscriptionManager audioId={audio.id} />
-                  </Card>
-                </Col>
-              </Row>
-              
-              {/* 音频统计 */}
-              <Card
-                title={
-                  <Space>
-                    <SoundOutlined style={{ color: '#00529B' }} />
-                    <span>音频统计</span>
-                  </Space>
-                }
-                style={{ marginBottom: 24 }}
-                size={isMobile ? "small" : "default"}
-              >
-                <AudioStats audioId={audio.id} />
-              </Card>
-              
-              {/* 相关资源 */}
-              <Card
-                title={
-                  <Space>
-                    <FileTextOutlined style={{ color: '#00529B' }} />
-                    <span>相关资源</span>
-                  </Space>
-                }
-                style={{ marginBottom: 24 }}
-                size={isMobile ? "small" : "default"}
-              >
-                <RelatedResources audioId={audio.id} />
-              </Card>
-              
               {/* 相关音频推荐 */}
               <Card
                 title={
                   <Space>
                     <SoundOutlined style={{ color: '#00529B' }} />
                     <span>相关推荐</span>
-                    <Tag color="processing">为您推荐</Tag>
+                    <Tag color="processing">同类音频</Tag>
                   </Space>
                 }
                 style={{ marginBottom: 24 }}
                 size={isMobile ? "small" : "default"}
               >
-                <RelatedAudios currentAudio={audio} />
+                <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="暂无相关推荐"
+                  />
+                </div>
               </Card>
-              
-              {/* 评论和问答区域 */}
-              <Row gutter={[24, 24]}>
-                <Col xs={24} lg={12}>
-                  <Card
-                    title={
-                      <Space>
-                        <UserOutlined style={{ color: '#00529B' }} />
-                        <span>用户评论</span>
-                      </Space>
-                    }
-                    size={isMobile ? "small" : "default"}
-                    style={{ height: '100%' }}
-                  >
-                    <CommentSection audioId={audio.id} audioTitle={audio.title} />
-                  </Card>
-                </Col>
-                <Col xs={24} lg={12}>
-                  <Card
-                    title={
-                      <Space>
-                        <FileTextOutlined style={{ color: '#00529B' }} />
-                        <span>相关问答</span>
-                      </Space>
-                    }
-                    size={isMobile ? "small" : "default"}
-                    style={{ height: '100%' }}
-                  >
-                    <QASection audioId={audio.id} title="相关问答" />
-                  </Card>
-                </Col>
-              </Row>
               
             </Col>
           </Row>

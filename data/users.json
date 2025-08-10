@@ -44,7 +44,7 @@
       "defaultPlaybackRate": 1,
       "defaultVolume": 0.5
     },
-    "lastLogin": "2025-08-09T07:36:14.840Z"
+    "lastLogin": "2025-08-10T09:42:50.906Z"
   },
   {
     "id": "user-1754614898781-9nib3ri5e",
@@ -61,5 +61,21 @@
       "defaultVolume": 0.8
     },
     "lastLogin": "2025-08-08T04:24:18.275Z"
+  },
+  {
+    "id": "user-1754808143187-ssa9mj456",
+    "username": "admin11",
+    "email": "11@qq.com",
+    "password": "$2b$12$jkTZMgvRd0YKD0nEE0nNpusiwq9ryOKEKH7O83255huJVaLEdW0DO",
+    "role": "user",
+    "status": "active",
+    "createdAt": "2025-08-10T06:42:23.187Z",
+    "preferences": {
+      "theme": "light",
+      "autoplay": false,
+      "defaultPlaybackRate": 1,
+      "defaultVolume": 0.8
+    },
+    "lastLogin": "2025-08-10T09:18:07.246Z"
   }
 ]

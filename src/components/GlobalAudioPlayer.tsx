@@ -214,7 +214,7 @@ export default function GlobalAudioPlayer({ sidebarWidth = 320, isMobile = false
             />
             
             {/* 倍速控制按钮 - 移动端和桌面端都显示 */}
-            <Dropdown menu={speedMenu} trigger={['click']} placement="topCenter">
+            <Dropdown menu={speedMenu} trigger={['click']} placement="top">
               <Button
                 shape="circle"
                 size={isActuallyMobile ? 'small' : 'large'}

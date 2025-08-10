@@ -93,7 +93,7 @@ const AudioListItem: React.FC<{
       hoverable
       className="w-full h-full cursor-pointer transition-all duration-200 hover:shadow-md"
       onClick={handleCardClick}
-      bodyStyle={{ padding: '12px 16px' }}
+      styles={{ body: { padding: '12px 16px' } }}
       actions={[
         <Button
           key="play"

@@ -1,8 +1,8 @@
 import { Suspense } from 'react';
-import { PageErrorBoundary } from '../../components/ErrorBoundary';
-import { BrowsePageSkeleton } from '../../components/LoadingStates';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import AntdHomeLayout from '../../components/AntdHomeLayout';
-import BrowseServerPage from './BrowseServerPage';
+import { Skeleton } from 'antd';
+import BrowsePageClient from './BrowsePageClient';
 
 const BrowseHeader = () => (
   <div className="mb-8">
@@ -11,19 +11,31 @@ const BrowseHeader = () => (
   </div>
 );
 
+const BrowsePageSkeleton = ({ text }: { text: string }) => (
+  <div className="space-y-6">
+    <div className="text-center">
+      <Skeleton.Input active style={{ width: 200 }} />
+    </div>
+    <Skeleton active paragraph={{ rows: 4 }} />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} active />
+      ))}
+    </div>
+  </div>
+);
+
 export default function BrowsePageWrapper({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     return (
-        <PageErrorBoundary>
-            <Suspense fallback={
-                <AntdHomeLayout>
-                    <div className="container mx-auto px-4 py-8">
-                        <BrowseHeader />
-                        <BrowsePageSkeleton text="正在加载页面..." />
+        <ErrorBoundary>
+            <AntdHomeLayout>
+                <div className="container mx-auto px-4 py-8">
+                    <BrowseHeader />
+                    <div className="text-center py-8">
+                        <p>浏览功能正在维护中...</p>
                     </div>
-                </AntdHomeLayout>
-            }>
-                <BrowseServerPage searchParams={searchParams} />
-            </Suspense>
-        </PageErrorBoundary>
+                </div>
+            </AntdHomeLayout>
+        </ErrorBoundary>
     );
 }

@@ -19,35 +19,11 @@ export async function DELETE(
       );
     }
 
-    // 检查标记是否存在以及权限
-    const markers = readMarkers();
-    const marker = markers.find(m => m.id === params.id);
-    
-    if (!marker) {
-      return NextResponse.json(
-        { error: '标记不存在' },
-        { status: 404 }
-      );
-    }
-
-    // 只有标记创建者或管理员可以删除
-    if (marker.createdBy !== session.user.id && session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: '无权限删除此标记' },
-        { status: 403 }
-      );
-    }
-
-    const success = deleteMarker(params.id);
-    
-    if (!success) {
-      return NextResponse.json(
-        { error: '删除标记失败' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ message: '标记已删除' });
+    // Markers functionality has been removed
+    return NextResponse.json(
+      { error: '标记功能暂时不可用' },
+      { status: 501 }
+    );
   } catch (error) {
     console.error('Error deleting marker:', error);
     return NextResponse.json(

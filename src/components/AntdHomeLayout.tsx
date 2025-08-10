@@ -594,7 +594,7 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
                 border: 'none',
                 borderRadius: 12
               }}
-              bodyStyle={{ padding: 12 }}
+              styles={{ body: { padding: 12 } }}
             >
               <Space>
                 <Avatar
