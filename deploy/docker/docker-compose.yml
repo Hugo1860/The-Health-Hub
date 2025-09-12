@@ -1,0 +1,137 @@
+version: '3.8'
+
+services:
+  # 健闻局应用
+  health-hub:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: health-hub-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # 数据库连接（优先使用 DATABASE_URL，同时提供 DB_* 兼容）
+      - DATABASE_URL=${DATABASE_URL}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_DATABASE=${POSTGRES_DB}
+      - DB_USERNAME=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_SSL=${DB_SSL:-false}
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      - SESSION_SECRET=${SESSION_SECRET:-your-super-secret-session-key-change-this}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-nextauth-secret-key}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - PORT=3000
+      - HOST=0.0.0.0
+    volumes:
+      - health-hub-data:/app/data
+      - health-hub-uploads:/app/public/uploads
+      - health-hub-logs:/app/logs
+    networks:
+      - health-hub-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: health-hub-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      # 使用默认 nginx.conf（会包含 /etc/nginx/conf.d/*.conf）
+      - ./nginx-site.conf:/etc/nginx/conf.d/default.conf:ro
+      - health-hub-uploads:/var/www/uploads:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - health-hub
+    networks:
+      - health-hub-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15
+    container_name: health-hub-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - health-hub-network
+
+  # Redis 缓存 (可选)
+  redis:
+    image: redis:7-alpine
+    container_name: health-hub-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - health-hub-network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 监控服务 (可选)
+  watchtower:
+    image: containrrr/watchtower
+    container_name: health-hub-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+      - WATCHTOWER_INCLUDE_STOPPED=true
+    networks:
+      - health-hub-network
+
+volumes:
+  health-hub-data:
+    driver: local
+  health-hub-uploads:
+    driver: local
+  health-hub-logs:
+    driver: local
+  redis-data:
+    driver: local
+  nginx-logs:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  health-hub-network:
+    driver: bridge

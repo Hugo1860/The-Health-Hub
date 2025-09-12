@@ -1,0 +1,303 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import db from '@/lib/db';
+import { z } from 'zod';
+
+// 收藏操作schema
+const favoriteSchema = z.object({
+  audioId: z.string().min(1, "音频ID不能为空"),
+  action: z.enum(['add', 'remove']).optional().default('add')
+});
+
+// 收藏查询schema
+const favoriteQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  sortBy: z.enum(['createdAt', 'title']).default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc')
+});
+
+// GET: 获取用户收藏列表或检查收藏状态
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: '请先登录'
+        }
+      }, { status: 401 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const audioId = searchParams.get('audioId');
+    
+    // 如果提供了 audioId，检查收藏状态
+    if (audioId) {
+      const existingFavorite = await db.query(
+        'SELECT id FROM favorites WHERE user_id = $1 AND audio_id = $2',
+        [session.user.id, audioId]
+      );
+      
+      return NextResponse.json({
+        success: true,
+        data: {
+          isFavorited: existingFavorite.rows.length > 0
+        }
+      });
+    }
+
+    const queryData = {
+      page: searchParams.get('page'),
+      limit: searchParams.get('limit'),
+      sortBy: searchParams.get('sortBy'),
+      sortOrder: searchParams.get('sortOrder')
+    };
+
+    const validation = favoriteQuerySchema.safeParse(queryData);
+    if (!validation.success) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'INVALID_QUERY',
+          message: '查询参数无效',
+          details: validation.error.flatten()
+        }
+      }, { status: 400 });
+    }
+
+    const { page, limit, sortBy, sortOrder } = validation.data;
+    const offset = (page - 1) * limit;
+
+    // 查询收藏的音频
+    const query = `
+      SELECT 
+        f.id as favorite_id,
+        f.created_at as favorited_at,
+        a.id,
+        a.title,
+        a.description,
+        a.url,
+        a.filename,
+        a."uploadDate",
+        a.duration,
+        a."coverImage",
+        a.speaker,
+        a.category_id,
+        a.subcategory_id,
+        c1.name as category_name,
+        c1.color as category_color,
+        c1.icon as category_icon,
+        c2.name as subcategory_name
+      FROM favorites f
+      JOIN audios a ON f.audio_id = a.id
+      LEFT JOIN categories c1 ON a.category_id = c1.id
+      LEFT JOIN categories c2 ON a.subcategory_id = c2.id
+      WHERE f.user_id = $1
+      ORDER BY ${sortBy === 'createdAt' ? 'f.created_at' : 'a.title'} ${sortOrder.toUpperCase()}
+      LIMIT $2 OFFSET $3
+    `;
+
+    const result = await db.query(query, [session.user.id, limit, offset]);
+
+    // 获取总数
+    const countQuery = 'SELECT COUNT(*) as total FROM favorites WHERE user_id = $1';
+    const countResult = await db.query(countQuery, [session.user.id]);
+    const total = parseInt(countResult.rows[0]?.total || '0');
+
+    const favorites = result.rows.map(row => ({
+      favoriteId: row.favorite_id,
+      favoritedAt: row.favorited_at,
+      audio: {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        url: row.url,
+        filename: row.filename, uploadDate: row.uploadDate,
+        duration: row.duration, coverImage: row.coverImage,
+        speaker: row.speaker,
+        categoryId: row.category_id,
+        subcategoryId: row.subcategory_id,
+        category: row.category_name ? {
+          id: row.category_id,
+          name: row.category_name,
+          color: row.category_color,
+          icon: row.category_icon
+        } : undefined,
+        subcategory: row.subcategory_name ? {
+          id: row.subcategory_id,
+          name: row.subcategory_name
+        } : undefined
+      }
+    }));
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        favorites,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('获取收藏列表失败:', error);
+    return NextResponse.json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: '获取收藏列表失败'
+      }
+    }, { status: 500 });
+  }
+}
+
+// POST: 添加或移除收藏
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: '请先登录'
+        }
+      }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const validation = favoriteSchema.safeParse(body);
+    
+    if (!validation.success) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'INVALID_DATA',
+          message: '请求数据无效',
+          details: validation.error.flatten()
+        }
+      }, { status: 400 });
+    }
+
+    const { audioId, action } = validation.data;
+
+    // 检查音频是否存在
+    const audioCheck = await db.query('SELECT id FROM audios WHERE id = $1', [audioId]);
+    if (audioCheck.rows.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'AUDIO_NOT_FOUND',
+          message: '音频不存在'
+        }
+      }, { status: 404 });
+    }
+
+    // 检查是否已收藏
+    const existingFavorite = await db.query(
+      'SELECT id FROM favorites WHERE user_id = $1 AND audio_id = $2',
+      [session.user.id, audioId]
+    );
+
+    if (action === 'add') {
+      if (existingFavorite.rows.length > 0) {
+        return NextResponse.json({
+          success: false,
+          error: {
+            code: 'ALREADY_FAVORITED',
+            message: '已经收藏过了'
+          }
+        }, { status: 400 });
+      }
+
+      // 添加收藏
+      const insertQuery = `
+        INSERT INTO favorites (user_id, audio_id, created_at)
+        VALUES ($1, $2, CURRENT_TIMESTAMP)
+        RETURNING *
+      `;
+
+      const insertResult = await db.query(insertQuery, [session.user.id, audioId]);
+      const newFavorite = insertResult.rows[0];
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          id: newFavorite.id,
+          userId: newFavorite.user_id,
+          audioId: newFavorite.audio_id,
+          createdAt: newFavorite.created_at
+        },
+        message: '收藏成功'
+      });
+
+    } else if (action === 'remove') {
+      if (existingFavorite.rows.length === 0) {
+        return NextResponse.json({
+          success: false,
+          error: {
+            code: 'NOT_FAVORITED',
+            message: '尚未收藏'
+          }
+        }, { status: 400 });
+      }
+
+      // 移除收藏
+      const deleteQuery = 'DELETE FROM favorites WHERE user_id = $1 AND audio_id = $2';
+      await db.query(deleteQuery, [session.user.id, audioId]);
+
+      return NextResponse.json({
+        success: true,
+        message: '取消收藏成功'
+      });
+    }
+
+  } catch (error) {
+    console.error('收藏操作失败:', error);
+    return NextResponse.json({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: '收藏操作失败'
+      }
+    }, { status: 500 });
+  }
+}
+
+// 检查收藏状态的辅助API
+export async function HEAD(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return new NextResponse(null, { status: 401 });
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const audioId = searchParams.get('audioId');
+
+    if (!audioId) {
+      return new NextResponse(null, { status: 400 });
+    }
+
+    const existingFavorite = await db.query(
+      'SELECT id FROM favorites WHERE user_id = $1 AND audio_id = $2',
+      [session.user.id, audioId]
+    );
+
+    return new NextResponse(null, { 
+      status: existingFavorite.rows.length > 0 ? 200 : 404 
+    });
+
+  } catch (error) {
+    console.error('检查收藏状态失败:', error);
+    return new NextResponse(null, { status: 500 });
+  }
+}

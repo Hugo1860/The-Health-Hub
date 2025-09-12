@@ -1,0 +1,80 @@
+// ⚠️ DEPRECATED: This module has been deprecated
+// Please use the PostgreSQL implementation in src/lib/database.ts instead
+
+console.warn('Warning: monitoring-storage.ts is deprecated. Use src/lib/database.ts instead.');
+
+// Export empty objects to prevent import errors during migration
+export const monitoringStorage = {
+  recordMetrics: () => {},
+  getMetrics: () => [],
+  createAlert: () => {},
+  getAlerts: () => [],
+  resolveAlert: () => {},
+  cleanup: () => {},
+  getStats: () => ({}),
+  createAlertRule: () => {},
+  getAlertRules: () => [],
+  saveMonitoringConfig: () => {},
+  getMonitoringConfig: () => null,
+  getAllMonitoringConfigs: () => []
+};
+
+export interface Alert {
+  id: string;
+  level: string;
+  title: string;
+  message: string;
+  source: string;
+  timestamp: string;
+  resolved: boolean;
+  resolvedAt?: string;
+  metadata?: any;
+}
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  source: string;
+  condition: string;
+  threshold: number;
+  duration: number;
+  severity: string;
+  enabled: boolean;
+  notifications: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonitoringRecord {
+  id: string;
+  timestamp: string;
+  source: string;
+  status: string;
+  metrics: any;
+  metadata?: any;
+  responseTime: number;
+  error?: string;
+}
+
+export interface MonitoringConfig {
+  id: string;
+  source: string;
+  interval: number;
+  enabled: boolean;
+  thresholds: any;
+  retentionDays: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export class MonitoringStorage {
+  constructor() {
+    console.warn('MonitoringStorage is deprecated');
+  }
+}
+
+export function initializeDefaultMonitoringConfigs() {
+  console.warn('initializeDefaultMonitoringConfigs is deprecated');
+}
+
+export default monitoringStorage;

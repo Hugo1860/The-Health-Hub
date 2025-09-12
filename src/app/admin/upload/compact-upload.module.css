@@ -1,0 +1,180 @@
+/* 紧凑上传页面样式 */
+
+.compactUploadContainer {
+  padding: 0;
+}
+
+.compactCard {
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.compactTitle {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  margin: 0 0 16px 0 !important;
+  color: #262626 !important;
+}
+
+.compactForm {
+  max-width: 100% !important;
+}
+
+.compactForm .ant-form-item {
+  margin-bottom: 12px !important;
+}
+
+.compactForm .ant-form-item-label {
+  padding-bottom: 4px !important;
+}
+
+.compactForm .ant-form-item-label > label {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #595959 !important;
+}
+
+.compactForm .ant-input,
+.compactForm .ant-select-selector,
+.compactForm .ant-input-affix-wrapper {
+  border-radius: 4px !important;
+  font-size: 13px !important;
+}
+
+.compactForm .ant-btn {
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+}
+
+.compactForm .ant-btn-primary {
+  height: 32px !important;
+  padding: 0 16px !important;
+}
+
+/* 上传区域紧凑样式 */
+.compactUploadArea {
+  padding: 12px 8px !important;
+  border-radius: 6px !important;
+  background: #fafafa !important;
+  border: 1px dashed #d9d9d9 !important;
+  transition: all 0.2s ease !important;
+}
+
+.compactUploadArea:hover {
+  border-color: #1890ff !important;
+  background: #f0f9ff !important;
+}
+
+.compactUploadArea .ant-upload-drag-icon {
+  margin: 8px 0 !important;
+}
+
+.compactUploadArea .ant-upload-text {
+  font-size: 14px !important;
+  margin: 4px 0 !important;
+  color: #595959 !important;
+}
+
+.compactUploadArea .ant-upload-hint {
+  font-size: 12px !important;
+  margin: 4px 0 !important;
+  color: #8c8c8c !important;
+}
+
+/* 分类卡片紧凑样式 */
+.compactCategoryCard {
+  background-color: #fafafa !important;
+  border: 1px solid #f0f0f0 !important;
+  border-radius: 6px !important;
+  margin-bottom: 12px !important;
+}
+
+.compactCategoryCard .ant-card-head {
+  padding: 8px 12px !important;
+  min-height: auto !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+.compactCategoryCard .ant-card-head-title {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #595959 !important;
+}
+
+.compactCategoryCard .ant-card-body {
+  padding: 12px !important;
+}
+
+/* 分类路径预览紧凑样式 */
+.compactCategoryPreview {
+  margin-top: 8px !important;
+  padding: 6px 8px !important;
+  background-color: #e6f7ff !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}
+
+.compactCategoryPreview .categoryLabel {
+  color: #666 !important;
+  margin-bottom: 2px !important;
+  font-size: 10px !important;
+}
+
+/* 响应式优化 */
+@media (max-width: 768px) {
+  .compactForm .ant-col {
+    margin-bottom: 8px !important;
+  }
+  
+  .compactUploadArea {
+    padding: 8px 4px !important;
+  }
+  
+  .compactUploadArea .ant-upload-drag-icon {
+    margin: 4px 0 !important;
+  }
+  
+  .compactUploadArea .ant-upload-drag-icon .anticon {
+    font-size: 28px !important;
+  }
+  
+  .compactCategoryCard .ant-card-body {
+    padding: 8px !important;
+  }
+}
+
+/* 加载状态优化 */
+.compactForm .ant-spin-container {
+  min-height: auto !important;
+}
+
+/* 按钮组紧凑样式 */
+.compactButtonGroup {
+  margin-top: 8px !important;
+  margin-bottom: 0 !important;
+}
+
+.compactButtonGroup .ant-space {
+  gap: 8px !important;
+}
+
+/* 标签输入紧凑样式 */
+.compactForm .ant-select-multiple .ant-select-selection-item {
+  height: 20px !important;
+  line-height: 18px !important;
+  font-size: 11px !important;
+  margin: 1px 2px !important;
+  padding: 0 4px !important;
+}
+
+/* 文本域紧凑样式 */
+.compactForm .ant-input {
+  line-height: 1.4 !important;
+}
+
+.compactForm .ant-input::placeholder {
+  font-size: 12px !important;
+  color: #bfbfbf !important;
+}
