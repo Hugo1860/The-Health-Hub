@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS categories (
   updated_at TIMESTAMPTZ NULL
 );
 
--- 音频（统一 snake_case，并新增 category_id/subcategory_id）
 CREATE TABLE IF NOT EXISTS audios (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -64,6 +63,8 @@ CREATE TABLE IF NOT EXISTS audios (
   speaker TEXT NULL,
   recording_date TIMESTAMPTZ NULL,
   status TEXT NULL,
+  -- 播放次数（用于排行/点击数）
+  play_count INTEGER NOT NULL DEFAULT 0,
   category_id TEXT NULL REFERENCES categories(id) ON DELETE SET NULL,
   subcategory_id TEXT NULL REFERENCES categories(id) ON DELETE SET NULL
 );
@@ -103,14 +104,18 @@ CREATE TABLE IF NOT EXISTS chapters (
   updated_at TIMESTAMPTZ NULL
 );
 
--- 评论
 CREATE TABLE IF NOT EXISTS comments (
   id TEXT PRIMARY KEY,
   audio_id TEXT NULL REFERENCES audios(id) ON DELETE CASCADE,
   user_id TEXT NULL REFERENCES users(id) ON DELETE SET NULL,
   content TEXT NULL,
   parent_id TEXT NULL,
-  created_at TIMESTAMPTZ NULL
+  created_at TIMESTAMPTZ NULL,
+  -- 审核相关字段：默认 pending，审核通过后设为 approved；拒绝为 rejected
+  status TEXT NOT NULL DEFAULT 'pending',
+  moderated_at TIMESTAMPTZ NULL,
+  moderated_by TEXT NULL,
+  moderation_reason TEXT NULL
 );
 
 -- 标记
