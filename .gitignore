@@ -36,10 +36,24 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Audio uploads (if you want to exclude them)
-/public/uploads/*.wav
-/public/uploads/*.mp3
-/public/uploads/*.m4a
+# Audio uploads and media files (不提交大文件到 Git)
+/public/uploads/**/*.wav
+/public/uploads/**/*.mp3
+/public/uploads/**/*.m4a
+/public/uploads/**/*.aac
+/public/uploads/**/*.ogg
+/public/uploads/**/*.flac
+/public/uploads/audios/
+/public/uploads/trash/
+/public/uploads/covers/*.jpg
+/public/uploads/covers/*.jpeg
+/public/uploads/covers/*.png
+/public/uploads/covers/*.webp
+
+# Database backups and exports (不提交数据库备份)
+backup_*.sql
+*-export.sql
+current-data-export.sql
 
 # Logs
 logs
