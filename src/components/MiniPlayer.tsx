@@ -83,13 +83,10 @@ export default function MiniPlayer() {
               )}
             </button>
             
-            <div className="flex-1 min-w-0">
-              <button
-                onClick={() => window.location.href = `/audio/${currentAudio.id}`}
-                className="text-left w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md p-1 -m-1 hover:bg-gray-50 transition-colors"
-              >
-                <p className="text-sm font-medium text-gray-900 truncate hover:text-blue-600 transition-colors">{currentAudio.title}</p>
-              </button>
+            <div>
+              <div className="text-left w-full p-1">
+                <p className="text-sm font-medium text-gray-900 truncate">{currentAudio.title}</p>
+              </div>
               <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                 <span className="font-mono">{formatTime(currentTime)}</span>
                 <span>/</span>
@@ -153,7 +150,7 @@ export default function MiniPlayer() {
         <div className="hidden sm:block">
           {/* 音频信息和进度条区域 */}
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-3 flex-1 min-w-0">
+            <div className="flex items-center space-x-3">
               {/* 封面图片 - 固定70x70px */}
               <button
                 onClick={() => window.location.href = `/audio/${currentAudio.id}`}
@@ -174,13 +171,10 @@ export default function MiniPlayer() {
                 )}
               </button>
               
-              <div className="flex-1 min-w-0">
-                <button
-                  onClick={() => window.location.href = `/audio/${currentAudio.id}`}
-                  className="text-left w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md p-1 -m-1 hover:bg-gray-50 transition-colors"
-                >
-                  <p className="text-sm font-medium text-gray-900 truncate hover:text-blue-600 transition-colors">{currentAudio.title}</p>
-                </button>
+              <div>
+                <div className="text-left w-full p-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{currentAudio.title}</p>
+                </div>
                 <div className="flex items-center space-x-2 text-xs text-gray-500 mt-1">
                   <span className="font-mono">{formatTime(currentTime)}</span>
                   <span>/</span>

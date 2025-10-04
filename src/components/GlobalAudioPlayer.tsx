@@ -1,6 +1,6 @@
 'use client';
 
-
+import '../styles/modern-home.css';
 import {
   Card,
   Row,
@@ -12,7 +12,8 @@ import {
   Slider,
   Grid,
   Dropdown,
-  message
+  message,
+  Tag
 } from 'antd';
 import {
   PlayCircleOutlined,
@@ -20,12 +21,21 @@ import {
   SoundOutlined,
   HeartOutlined,
   ShareAltOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  TagOutlined,
+  FolderOutlined
 } from '@ant-design/icons';
 import { useAudioStore } from '../store/audioStore';
 
 const { Title, Text, Paragraph } = Typography;
 const { useBreakpoint } = Grid;
+
+// 截取指定长度的文本
+const truncateText = (text: string, maxLength: number) => {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
 
 interface GlobalAudioPlayerProps {
   sidebarWidth?: number;
@@ -160,45 +170,117 @@ export default function GlobalAudioPlayer({ sidebarWidth = 320, isMobile = false
 
   return (
     <Card 
-      className="elegant-player-card elegant-hover-lift"
+      className="modern-player-card"
       style={{ 
         position: 'fixed',
         top: isActuallyMobile ? 72 : 0, // 移动端在Logo栏下方 (64px Logo高度 + 8px间隔)
         left: isActuallyMobile ? 16 : (sidebarWidth + 24), // 添加左边距
         right: isActuallyMobile ? 16 : 24, // 添加右边距
-        height: isActuallyMobile ? 64 : 'auto', // 移动端固定高度
+        height: isActuallyMobile ? 'auto' : 'auto', // 移动端也使用自动高度，完整显示内容
+        minHeight: isActuallyMobile ? 120 : 'auto', // 移动端最小高度
         zIndex: 1000,
         margin: 0,
-        borderRadius: 12, // 恢复圆角
-        boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-        backgroundColor: '#fff'
+        overflow: isActuallyMobile ? 'visible' : 'visible' // 确保内容不被裁剪
       }}
     >
       <Row gutter={[16, 16]} align="middle">
         <Col flex="auto">
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
             <SoundOutlined 
+              className="modern-player-icon"
               style={{ 
-                fontSize: isActuallyMobile ? 18 : 20, // 比字体稍大
-                color: '#13C2C2',
+                fontSize: isActuallyMobile ? 18 : 20,
                 marginRight: 8
               }} 
             />
-            <Title level={isActuallyMobile ? 5 : 4} style={{ margin: 0 }}>
+            <Title level={isActuallyMobile ? 5 : 4} className="modern-player-title">
               {currentAudio.title}
             </Title>
           </div>
           <Paragraph 
             ellipsis={{ rows: isActuallyMobile ? 1 : 2 }} 
-            style={{ margin: 0, marginBottom: 8, color: '#666', fontSize: isActuallyMobile ? 12 : 14 }}
+            className="modern-player-description"
+            style={{ marginBottom: 8 }}
           >
-            {currentAudio.description}
+            {truncateText(currentAudio.description || '', 35)}
           </Paragraph>
+          
+          {/* 分类和标签信息 */}
+          <Space size="small" wrap style={{ marginBottom: 8 }}>
+            {/* 分类标签 */}
+            {(currentAudio.category?.name || currentAudio.categoryName) && (
+              <Tag 
+                color={currentAudio.category?.color || currentAudio.categoryColor || '#13C2C2'}
+                icon={<FolderOutlined />}
+                style={{ fontSize: isActuallyMobile ? '11px' : '12px' }}
+              >
+                {currentAudio.category?.name || currentAudio.categoryName}
+              </Tag>
+            )}
+            
+            {/* 子分类标签 */}
+            {(currentAudio.subcategory?.name || currentAudio.subcategoryName) && (
+              <Tag 
+                color="blue"
+                style={{ fontSize: isActuallyMobile ? '11px' : '12px' }}
+              >
+                {currentAudio.subcategory?.name || currentAudio.subcategoryName}
+              </Tag>
+            )}
+            
+            {/* 标签列表 */}
+            {currentAudio.tags && Array.isArray(currentAudio.tags) && currentAudio.tags.length > 0 && (
+              <>
+                {currentAudio.tags.slice(0, isActuallyMobile ? 2 : 3).map((tag, index) => {
+                  // 处理可能的嵌套JSON字符串
+                  let tagText = tag;
+                  try {
+                    // 处理嵌套的JSON字符串 ["[]"] -> []
+                    if (typeof tag === 'string') {
+                      if (tag.startsWith('[')) {
+                        const parsed = JSON.parse(tag);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                          // 如果解析后是数组，继续解析第一个元素
+                          if (typeof parsed[0] === 'string' && parsed[0].startsWith('[')) {
+                            const innerParsed = JSON.parse(parsed[0]);
+                            tagText = Array.isArray(innerParsed) && innerParsed.length > 0 ? innerParsed[0] : tag;
+                          } else {
+                            tagText = parsed[0];
+                          }
+                        }
+                      }
+                    }
+                  } catch {}
+                  
+                  // 只显示非空标签
+                  if (!tagText || tagText === '[]' || tagText === '') {
+                    return null;
+                  }
+                  
+                  return (
+                    <Tag 
+                      key={index}
+                      icon={<TagOutlined />}
+                      style={{ fontSize: isActuallyMobile ? '11px' : '12px' }}
+                    >
+                      {tagText}
+                    </Tag>
+                  );
+                }).filter(Boolean)}
+                {Array.isArray(currentAudio.tags) && currentAudio.tags.filter(t => t && t !== '[]' && t !== '').length > (isActuallyMobile ? 2 : 3) && (
+                  <Tag style={{ fontSize: isActuallyMobile ? '11px' : '12px' }}>
+                    +{currentAudio.tags.filter(t => t && t !== '[]' && t !== '').length - (isActuallyMobile ? 2 : 3)}
+                  </Tag>
+                )}
+              </>
+            )}
+          </Space>
+          
           <Space size="small">
-            <Text type="secondary" style={{ fontSize: isActuallyMobile ? 11 : 14 }}>
+            <Text className="modern-player-meta">
               {currentAudio.subject}
             </Text>
-            <Text type="secondary" style={{ fontSize: isActuallyMobile ? 11 : 14 }}>
+            <Text className="modern-player-meta">
               {new Date(currentAudio.uploadDate).toLocaleDateString('zh-CN')}
             </Text>
           </Space>
@@ -206,7 +288,7 @@ export default function GlobalAudioPlayer({ sidebarWidth = 320, isMobile = false
         <Col flex="none">
           <Space size={isActuallyMobile ? 16 : 12}>
             <Button
-              type="primary"
+              className="modern-player-btn-primary"
               shape="circle"
               size={isActuallyMobile ? 'small' : 'large'}
               icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
@@ -216,19 +298,21 @@ export default function GlobalAudioPlayer({ sidebarWidth = 320, isMobile = false
             {/* 倍速控制按钮 - 移动端和桌面端都显示 */}
             <Dropdown menu={speedMenu} trigger={['click']} placement="top">
               <Button
+                className="modern-player-btn"
                 shape="circle"
                 size={isActuallyMobile ? 'small' : 'large'}
                 icon={<ThunderboltOutlined />}
                 title={`播放速度: ${playbackRate}x`}
                 style={{ 
-                  color: playbackRate !== 1 ? '#13C2C2' : undefined,
-                  borderColor: playbackRate !== 1 ? '#13C2C2' : undefined
+                  color: playbackRate !== 1 ? '#6366f1' : undefined,
+                  borderColor: playbackRate !== 1 ? '#6366f1' : undefined
                 }}
               />
             </Dropdown>
             
             {/* 收藏和分享按钮 - 移动端和桌面端都显示 */}
             <Button
+              className="modern-player-btn"
               shape="circle"
               size={isActuallyMobile ? 'small' : 'large'}
               icon={<HeartOutlined />}
@@ -236,6 +320,7 @@ export default function GlobalAudioPlayer({ sidebarWidth = 320, isMobile = false
               onClick={handleFavorite}
             />
             <Button
+              className="modern-player-btn"
               shape="circle"
               size={isActuallyMobile ? 'small' : 'large'}
               icon={<ShareAltOutlined />}
@@ -250,18 +335,11 @@ export default function GlobalAudioPlayer({ sidebarWidth = 320, isMobile = false
       <Row style={{ marginTop: 16 }}>
         <Col span={24}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Text 
-              style={{ 
-                fontSize: isActuallyMobile ? 11 : 12, 
-                fontFamily: 'monospace',
-                minWidth: isActuallyMobile ? 35 : 40,
-                color: '#666'
-              }}
-            >
+            <Text className="modern-player-time">
               {formatTime(currentTime)}
             </Text>
             
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1 }} className="modern-player-slider">
               <Slider
                 value={duration ? (currentTime / duration) * 100 : 0}
                 onChange={handleProgressChange}
@@ -272,25 +350,11 @@ export default function GlobalAudioPlayer({ sidebarWidth = 320, isMobile = false
                     return formatTime(time);
                   }
                 }}
-                styles={{
-                  track: { backgroundColor: '#13C2C2' },
-                  handle: { 
-                    borderColor: '#13C2C2',
-                    backgroundColor: '#13C2C2'
-                  }
-                }}
                 style={{ margin: 0 }}
               />
             </div>
             
-            <Text 
-              style={{ 
-                fontSize: isActuallyMobile ? 11 : 12, 
-                fontFamily: 'monospace',
-                minWidth: isActuallyMobile ? 35 : 40,
-                color: '#666'
-              }}
-            >
+            <Text className="modern-player-time">
               {formatTime(duration)}
             </Text>
           </div>

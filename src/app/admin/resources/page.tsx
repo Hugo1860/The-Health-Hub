@@ -4,72 +4,78 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { 
-  Table, 
   Card, 
-  Button, 
-  Space, 
-  Tag, 
+  Row, 
+  Col, 
+  Statistic, 
+  Progress,
+  Button,
+  Space,
   Typography,
-  Row,
-  Col,
-  Statistic,
-  Input,
-  Select,
-  Image,
-  Popconfirm,
-  message
+  Table,
+  Tag,
+  message,
+  Tabs,
+  Alert,
+  Divider,
+  Tooltip,
+  Modal,
+  Badge
 } from 'antd';
 import {
+  FolderOutlined,
   SoundOutlined,
-  PlusOutlined,
-  EyeOutlined,
-  EditOutlined,
+  FileImageOutlined,
   DeleteOutlined,
-  TagOutlined,
-  CalendarOutlined,
-  UserOutlined,
-  SearchOutlined,
-  FilterOutlined
+  ReloadOutlined,
+  WarningOutlined,
+  CheckCircleOutlined,
+  FolderOpenOutlined,
+  CloudServerOutlined,
+  PieChartOutlined,
+  BarChartOutlined,
+  PlayCircleOutlined
 } from '@ant-design/icons';
 import AntdAdminLayout from '../../../components/AntdAdminLayout';
 
-interface AudioFile {
-  id: string;
-  title: string;
-  description: string;
-  url: string;
-  filename: string;
-  uploadDate: string;
-  subject: string;
-  tags: string[];
-  speaker?: string;
-  recordingDate?: string;
-  duration?: number;
-  transcription?: string;
-  coverImage?: string;
+const { Title, Text, Paragraph } = Typography;
+
+interface StorageStats {
+  totalSize: number;
+  audioSize: number;
+  coverSize: number;
+  otherSize: number;
+  audioCount: number;
+  coverCount: number;
+  otherCount: number;
+  trashSize: number;
+  trashCount: number;
+  usagePercent?: number;
+  maxSize?: number;
+  availableSize?: number;
+  byCategory?: Record<string, { count: number; size: number }>;
+  recentUploads?: Array<{
+    filename: string;
+    size: number;
+    uploadDate: string;
+    type: string;
+  }>;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
+interface OrphanFile {
+  path: string;
+  size: number;
+  type: 'audio' | 'cover';
+  mtime: string;
 }
-
-const { Title, Text } = Typography;
-const { Search } = Input;
-
-export const dynamic = 'force-dynamic';
 
 export default function ResourcesManagementPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [audios, setAudios] = useState<AudioFile[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [stats, setStats] = useState<StorageStats | null>(null);
+  const [orphanFiles, setOrphanFiles] = useState<OrphanFile[]>([]);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -79,119 +85,150 @@ export default function ResourcesManagementPage() {
       return;
     }
 
-    fetchData();
+    fetchStorageStats();
   }, [session, status, router]);
 
-  const fetchData = async () => {
+  const fetchStorageStats = async () => {
     try {
-      console.log('Fetching categories and audios...');
-      
-      // 获取分类
-      const categoriesResponse = await fetch('/api/admin/simple-categories', {
+      setLoading(true);
+      const response = await fetch('/api/admin/storage/stats', {
         credentials: 'include'
       });
-      
-      if (categoriesResponse.ok) {
-        const categoriesResult = await categoriesResponse.json();
-        console.log('Categories response:', categoriesResult);
-        const categoriesData = categoriesResult.success ? categoriesResult.data : categoriesResult;
-        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-      } else {
-        console.error('Failed to fetch categories:', categoriesResponse.status);
-        message.error('获取分类失败');
-      }
 
-      // 获取音频列表
-      const audiosResponse = await fetch('/api/admin/simple-audio', {
-        credentials: 'include'
-      });
-      
-      if (audiosResponse.ok) {
-        const audiosResult = await audiosResponse.json();
-        console.log('Audios response:', audiosResult);
-        
-        // 处理不同的响应格式
-        let audioData = [];
-        if (audiosResult.data && Array.isArray(audiosResult.data)) {
-          audioData = audiosResult.data;
-        } else if (Array.isArray(audiosResult)) {
-          audioData = audiosResult;
-        } else if (audiosResult.audioList && Array.isArray(audiosResult.audioList)) {
-          audioData = audiosResult.audioList;
-        }
-        
-        // 处理音频数据
-        const processedAudioData = audioData.map((audio: any) => ({
-          ...audio,
-          tags: typeof audio.tags === 'string' ? JSON.parse(audio.tags || '[]') : (audio.tags || []),
-          uploadDate: audio.uploadDate || new Date().toISOString(),
-          subject: audio.subject || '未分类',
-          speaker: audio.speaker || '',
-          duration: audio.duration || 0
-        }));
-        
-        console.log('Processed audios:', processedAudioData);
-        setAudios(processedAudioData);
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data);
       } else {
-        console.error('Failed to fetch audios:', audiosResponse.status);
-        message.error('获取音频列表失败');
+        message.error('获取存储统计失败');
       }
     } catch (error) {
-      console.error('获取数据失败:', error);
-      message.error('获取数据失败: ' + (error instanceof Error ? error.message : '未知错误'));
+      console.error('获取存储统计失败:', error);
+      message.error('获取存储统计失败');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteAudio = async (audioId: string) => {
+  const runOrphanCheck = async () => {
     try {
-      const response = await fetch(`/api/admin/simple-audio/${audioId}`, {
-        method: 'DELETE',
+      setCleanupLoading(true);
+      message.loading({ content: '正在检测孤儿文件...', key: 'orphan-check' });
+      
+      // 这里调用孤儿文件检测API（需要创建）
+      const response = await fetch('/api/admin/storage/orphans', {
         credentials: 'include'
       });
 
       if (response.ok) {
-        message.success('删除成功');
-        setAudios(audios.filter(a => a.id !== audioId));
+        const data = await response.json();
+        setOrphanFiles(data.orphans || []);
+        message.success({ 
+          content: `发现 ${data.orphans?.length || 0} 个孤儿文件`, 
+          key: 'orphan-check' 
+        });
       } else {
-        const error = await response.json();
-        message.error(error.error || '删除音频失败');
+        message.error({ content: '孤儿文件检测失败', key: 'orphan-check' });
       }
     } catch (error) {
-      console.error('删除音频失败:', error);
-      message.error('删除音频失败');
+      console.error('孤儿文件检测失败:', error);
+      message.error({ content: '孤儿文件检测失败', key: 'orphan-check' });
+    } finally {
+      setCleanupLoading(false);
     }
   };
 
-  const getCategoryInfo = (categoryName: string) => {
-    return categories.find(cat => cat.name === categoryName) || {
-      id: categoryName,
-      name: categoryName,
-      color: '#6b7280',
-      icon: '📚'
-    };
+  const cleanupOrphans = async () => {
+    Modal.confirm({
+      title: '确认清理孤儿文件',
+      content: `确定要将 ${orphanFiles.length} 个孤儿文件移动到回收站吗？`,
+      okText: '确定',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          setCleanupLoading(true);
+          message.loading({ content: '正在清理孤儿文件...', key: 'cleanup' });
+          
+          const response = await fetch('/api/admin/storage/cleanup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ orphans: orphanFiles })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            message.success({ 
+              content: `已移动 ${data.cleaned} 个文件到回收站`, 
+              key: 'cleanup' 
+            });
+            setOrphanFiles([]);
+            fetchStorageStats();
+          } else {
+            message.error({ content: '清理失败', key: 'cleanup' });
+          }
+        } catch (error) {
+          console.error('清理失败:', error);
+          message.error({ content: '清理失败', key: 'cleanup' });
+        } finally {
+          setCleanupLoading(false);
+        }
+      }
+    });
   };
 
-  // 过滤音频
-  const filteredAudios = audios.filter(audio => {
-    const matchesCategory = !selectedCategory || audio.subject === selectedCategory;
-    const matchesSearch = !searchTerm || 
-      audio.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      audio.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      audio.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    return matchesCategory && matchesSearch;
-  });
+  const formatSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+  };
 
-  // 按分类分组音频
-  const audiosByCategory = categories.reduce((acc, category) => {
-    const categoryAudios = filteredAudios.filter(audio => audio.subject === category.name);
-    if (categoryAudios.length > 0) {
-      acc[category.name] = categoryAudios;
+  const getStorageUsagePercent = () => {
+    if (!stats) return 0;
+    // 优先使用 API 返回的百分比
+    if (stats.usagePercent !== undefined) {
+      return Math.round(stats.usagePercent);
     }
-    return acc;
-  }, {} as Record<string, AudioFile[]>);
+    // 备用计算方式
+    const maxStorage = stats.maxSize || (50 * 1024 * 1024 * 1024); // 50GB
+    return Math.round((stats.totalSize / maxStorage) * 100);
+  };
+
+  const orphanColumns = [
+    {
+      title: '文件路径',
+      dataIndex: 'path',
+      key: 'path',
+      width: '50%',
+      ellipsis: true,
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      key: 'type',
+      width: '15%',
+      render: (type: string) => (
+        <Tag color={type === 'audio' ? 'blue' : 'green'}>
+          {type === 'audio' ? '音频' : '封面'}
+        </Tag>
+      ),
+    },
+    {
+      title: '大小',
+      dataIndex: 'size',
+      key: 'size',
+      width: '15%',
+      render: (size: number) => formatSize(size),
+    },
+    {
+      title: '修改时间',
+      dataIndex: 'mtime',
+      key: 'mtime',
+      width: '20%',
+      render: (mtime: string) => new Date(mtime).toLocaleString('zh-CN'),
+    },
+  ];
 
   if (status === 'loading' || loading) {
     return (
@@ -208,239 +245,357 @@ export default function ResourcesManagementPage() {
     return null;
   }
 
-  // 表格列定义
-  const columns = [
-    {
-      title: '音频信息',
-      dataIndex: 'title',
-      key: 'title',
-      width: 400,
-      render: (text: string, record: AudioFile) => (
-        <Space>
-          <div style={{ width: 60, height: 60, borderRadius: 8, overflow: 'hidden' }}>
-            {record.coverImage ? (
-              <Image
-                src={record.coverImage}
-                alt={record.title}
-                width={60}
-                height={60}
-                style={{ objectFit: 'cover' }}
-                fallback="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMIAAADDCAYAAADQvc6UAAABRWlDQ1BJQ0MgUHJvZmlsZQAAKJFjYGASSSwoyGFhYGDIzSspCnJ3UoiIjFJgf8LAwSDCIMogwMCcmFxc4BgQ4ANUwgCjUcG3awyMIPqyLsis7PPOq3QdDFcvjV3jOD1boQVTPQrgSkktTgbSf4A4LbmgqISBgTEFyFYuLykAsTuAbJEioKOA7DkgdjqEvQHEToKwj4DVhAQ5A9k3gGyB5IxEoBmML4BsnSQk8XQkNtReEOBxcfXxUQg1Mjc0dyHgXNJBSWpFCYh2zi+oLMpMzyhRcASGUqqCZ16yno6CkYGRAQMDKMwhqj/fAIcloxgHQqxAjIHBEugw5sUIsSQpBobtQPdLciLEVJYzMPBHMDBsayhILEqEO4DxG0txmrERhM29nYGBddr//5/DGRjYNRkY/l7////39v///y4Dmn+LgeHANwDrkl1AuO+pmgAAADhlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAAqACAAQAAAABAAAAwqADAAQAAAABAAAAwwAAAAD9b/HnAAAHlklEQVR4Ae3dP3Ik1RnG4W+FgYxN"
-              />
-            ) : (
-              <div style={{ 
-                width: 60, 
-                height: 60, 
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '24px'
-              }}>
-                🎵
-              </div>
-            )}
-          </div>
-          <div>
-            <div style={{ fontWeight: 500, marginBottom: 4 }}>{text}</div>
-            {record.description && (
-              <div style={{ fontSize: '12px', color: '#666', marginBottom: 4 }}>
-                {record.description.length > 50 
-                  ? record.description.substring(0, 50) + '...' 
-                  : record.description}
-              </div>
-            )}
-            <Space size="small">
-              <Tag color="blue">{record.subject}</Tag>
-              {record.speaker && (
-                <Tag icon={<UserOutlined />} color="green">
-                  {record.speaker}
-                </Tag>
-              )}
-            </Space>
-          </div>
-        </Space>
-      ),
-    },
-    {
-      title: '标签',
-      dataIndex: 'tags',
-      key: 'tags',
-      width: 200,
-      render: (tags: string[]) => (
-        <Space wrap>
-          {tags.slice(0, 3).map((tag, index) => (
-            <Tag key={index} color="default">
-              {tag}
-            </Tag>
-          ))}
-          {tags.length > 3 && (
-            <Tag color="default">
-              +{tags.length - 3}
-            </Tag>
-          )}
-        </Space>
-      ),
-    },
-    {
-      title: '上传时间',
-      dataIndex: 'uploadDate',
-      key: 'uploadDate',
-      width: 120,
-      render: (date: string) => (
-        <Space>
-          <CalendarOutlined />
-          {new Date(date).toLocaleDateString('zh-CN')}
-        </Space>
-      ),
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 200,
-      render: (_: any, record: AudioFile) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            size="small"
-            onClick={() => window.open(`/audio/${record.id}`, '_blank')}
-          >
-            预览
-          </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            size="small"
-            onClick={() => router.push(`/admin/edit/${record.id}`)}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定要删除这个音频吗？"
-            description="删除后无法恢复，请谨慎操作。"
-            onConfirm={() => handleDeleteAudio(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />} size="small">
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
-  // 统计数据
-  const stats = {
-    total: audios.length,
-    categories: categories.length,
-    filtered: filteredAudios.length,
-    thisMonth: audios.filter(a => {
-      const uploadDate = new Date(a.uploadDate);
-      const now = new Date();
-      return uploadDate.getMonth() === now.getMonth() && uploadDate.getFullYear() === now.getFullYear();
-    }).length,
-  };
+  const storagePercent = getStorageUsagePercent();
 
   return (
     <AntdAdminLayout>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* 统计卡片 */}
-        <Row gutter={16}>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="音频总数"
-                value={stats.total}
-                prefix={<SoundOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="分类数量"
-                value={stats.categories}
-                prefix={<TagOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="筛选结果"
-                value={stats.filtered}
-                prefix={<FilterOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="本月新增"
-                value={stats.thisMonth}
-                prefix={<CalendarOutlined />}
-              />
-            </Card>
-          </Col>
-        </Row>
+        {/* 页面标题 */}
+        <div>
+          <Title level={2}>
+            <FolderOpenOutlined /> 文件资源管理
+          </Title>
+          <Text type="secondary">
+            管理系统存储空间，查看文件统计，清理冗余资源
+          </Text>
+        </div>
 
-        {/* 音频资源管理表格 */}
-        <Card
-          title="音频资源管理"
-          extra={
+        {/* 存储概览 */}
+        <Card 
+          title={
             <Space>
-              <Search
-                placeholder="搜索音频标题、描述或标签"
-                allowClear
-                style={{ width: 300 }}
-                onSearch={setSearchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <Select
-                placeholder="选择分类"
-                allowClear
-                style={{ width: 150 }}
-                value={selectedCategory || undefined}
-                onChange={setSelectedCategory}
-              >
-                {categories.map((category) => (
-                  <Select.Option key={category.id} value={category.name}>
-                    {category.icon} {category.name}
-                  </Select.Option>
-                ))}
-              </Select>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => router.push('/admin/upload')}
-              >
-                添加音频
-              </Button>
+              <CloudServerOutlined />
+              <span>存储空间概览</span>
             </Space>
           }
+          extra={
+            <Button 
+              icon={<ReloadOutlined />} 
+              onClick={fetchStorageStats}
+              loading={loading}
+            >
+              刷新
+            </Button>
+          }
         >
-          <Table
-            columns={columns}
-            dataSource={filteredAudios}
-            loading={loading}
-            rowKey="id"
-            pagination={{
-              total: filteredAudios.length,
-              pageSize: 10,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
-            }}
-            scroll={{ x: 1000 }}
+          <Row gutter={16}>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="总存储占用"
+                  value={formatSize(stats?.totalSize || 0)}
+                  prefix={<CloudServerOutlined />}
+                  valueStyle={{ color: '#1890ff' }}
+                />
+                <Progress 
+                  percent={storagePercent} 
+                  status={storagePercent > 80 ? 'exception' : 'active'}
+                  size="small"
+                  style={{ marginTop: 8 }}
+                />
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="音频文件"
+                  value={stats?.audioCount || 0}
+                  suffix="个"
+                  prefix={<SoundOutlined />}
+                  valueStyle={{ color: '#52c41a' }}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  占用 {formatSize(stats?.audioSize || 0)}
+                </Text>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="封面图片"
+                  value={stats?.coverCount || 0}
+                  suffix="个"
+                  prefix={<FileImageOutlined />}
+                  valueStyle={{ color: '#faad14' }}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  占用 {formatSize(stats?.coverSize || 0)}
+                </Text>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
+                <Statistic
+                  title="回收站"
+                  value={stats?.trashCount || 0}
+                  suffix="个"
+                  prefix={<DeleteOutlined />}
+                  valueStyle={{ color: stats?.trashCount ? '#ff4d4f' : '#d9d9d9' }}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  占用 {formatSize(stats?.trashSize || 0)}
+                </Text>
+              </Card>
+            </Col>
+          </Row>
+
+          {storagePercent > 80 && (
+            <Alert
+              message="存储空间警告"
+              description={`当前存储使用率已达 ${storagePercent}%，建议及时清理冗余文件。`}
+              type="warning"
+              showIcon
+              icon={<WarningOutlined />}
+              style={{ marginTop: 16 }}
+            />
+          )}
+        </Card>
+
+        {/* 文件管理选项卡 */}
+        <Card>
+          <Tabs 
+            defaultActiveKey="1"
+            items={[
+              {
+                key: '1',
+                label: (
+                  <span>
+                    <DeleteOutlined />
+                    孤儿文件清理
+                    {orphanFiles.length > 0 && (
+                      <Badge 
+                        count={orphanFiles.length} 
+                        style={{ marginLeft: 8 }}
+                      />
+                    )}
+                  </span>
+                ),
+                children: (
+                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    <Alert
+                      message="什么是孤儿文件？"
+                      description="孤儿文件是指存在于文件系统中，但数据库中没有对应记录的文件。这些文件通常是由于上传失败、删除不完整等原因产生的。"
+                      type="info"
+                      showIcon
+                      icon={<WarningOutlined />}
+                    />
+
+                    <Space>
+                      <Button 
+                        type="primary"
+                        icon={<ReloadOutlined />}
+                        onClick={runOrphanCheck}
+                        loading={cleanupLoading}
+                      >
+                        检测孤儿文件
+                      </Button>
+                      
+                      {orphanFiles.length > 0 && (
+                        <Button 
+                          danger
+                          icon={<DeleteOutlined />}
+                          onClick={cleanupOrphans}
+                          loading={cleanupLoading}
+                        >
+                          清理到回收站 ({orphanFiles.length})
+                        </Button>
+                      )}
+                    </Space>
+
+                    {orphanFiles.length > 0 && (
+                      <>
+                        <Divider />
+                        <Alert
+                          message={`发现 ${orphanFiles.length} 个孤儿文件`}
+                          description={`总大小: ${formatSize(orphanFiles.reduce((sum, f) => sum + f.size, 0))}`}
+                          type="warning"
+                          showIcon
+                        />
+                        <Table
+                          columns={orphanColumns}
+                          dataSource={orphanFiles}
+                          rowKey="path"
+                          pagination={{
+                            pageSize: 10,
+                            showTotal: (total) => `共 ${total} 个文件`,
+                          }}
+                          scroll={{ x: 800 }}
+                        />
+                      </>
+                    )}
+                  </Space>
+                ),
+              },
+              {
+                key: '2',
+                label: (
+                  <span>
+                    <PieChartOutlined />
+                    存储分析
+                  </span>
+                ),
+                children: (
+                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    <Title level={4}>按类型分布</Title>
+                    <Row gutter={16}>
+                      <Col span={8}>
+                        <Card>
+                          <Statistic
+                            title="音频文件占比"
+                            value={stats ? Math.round((stats.audioSize / stats.totalSize) * 100) : 0}
+                            suffix="%"
+                            prefix={<SoundOutlined />}
+                          />
+                          <Progress 
+                            percent={stats ? Math.round((stats.audioSize / stats.totalSize) * 100) : 0}
+                            strokeColor="#1890ff"
+                          />
+                        </Card>
+                      </Col>
+                      <Col span={8}>
+                        <Card>
+                          <Statistic
+                            title="封面图片占比"
+                            value={stats ? Math.round((stats.coverSize / stats.totalSize) * 100) : 0}
+                            suffix="%"
+                            prefix={<FileImageOutlined />}
+                          />
+                          <Progress 
+                            percent={stats ? Math.round((stats.coverSize / stats.totalSize) * 100) : 0}
+                            strokeColor="#52c41a"
+                          />
+                        </Card>
+                      </Col>
+                      <Col span={8}>
+                        <Card>
+                          <Statistic
+                            title="其他文件占比"
+                            value={stats ? Math.round((stats.otherSize / stats.totalSize) * 100) : 0}
+                            suffix="%"
+                            prefix={<FolderOutlined />}
+                          />
+                          <Progress 
+                            percent={stats ? Math.round((stats.otherSize / stats.totalSize) * 100) : 0}
+                            strokeColor="#faad14"
+                          />
+                        </Card>
+                      </Col>
+                    </Row>
+
+                    <Divider />
+
+                    <Title level={4}>按分类分布</Title>
+                    {stats?.byCategory && Object.keys(stats.byCategory).length > 0 ? (
+                      <Row gutter={[16, 16]}>
+                        {Object.entries(stats.byCategory).map(([category, data]) => (
+                          <Col key={category} xs={24} sm={12} lg={8}>
+                            <Card size="small">
+                              <Statistic
+                                title={category}
+                                value={data.count}
+                                suffix="个"
+                                prefix={<PlayCircleOutlined />}
+                              />
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                占用 {formatSize(data.size)}
+                              </Text>
+                            </Card>
+                          </Col>
+                        ))}
+                      </Row>
+                    ) : (
+                      <Alert message="暂无分类数据" type="info" />
+                    )}
+                  </Space>
+                ),
+              },
+              {
+                key: '3',
+                label: (
+                  <span>
+                    <BarChartOutlined />
+                    维护工具
+                  </span>
+                ),
+                children: (
+                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                    <Card title="文件整理工具" size="small">
+                      <Paragraph>
+                        <Text type="secondary">
+                          将上传目录中的文件按照年/月组织到规范的目录结构中。
+                        </Text>
+                      </Paragraph>
+                      <Paragraph>
+                        <Text code>node scripts/organize-files.js --verbose</Text>
+                      </Paragraph>
+                      <Button type="primary" disabled>
+                        运行整理脚本（开发中）
+                      </Button>
+                    </Card>
+
+                    <Card title="清空回收站" size="small">
+                      <Paragraph>
+                        <Text type="secondary">
+                          清空回收站中的所有文件。建议在确认文件无需恢复后再执行此操作。
+                        </Text>
+                      </Paragraph>
+                      <Alert
+                        message="警告"
+                        description="此操作不可逆，请谨慎操作！"
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                      />
+                      <Button danger disabled>
+                        清空回收站（开发中）
+                      </Button>
+                    </Card>
+
+                    <Card title="数据库同步检查" size="small">
+                      <Paragraph>
+                        <Text type="secondary">
+                          检查数据库记录与文件系统是否一致，修复不匹配的记录。
+                        </Text>
+                      </Paragraph>
+                      <Button type="primary" disabled>
+                        运行同步检查（开发中）
+                      </Button>
+                    </Card>
+                  </Space>
+                ),
+              },
+            ]}
           />
+        </Card>
+
+        {/* 快速操作指南 */}
+        <Card 
+          title="📚 维护指南"
+          size="small"
+        >
+          <Space direction="vertical" style={{ width: '100%' }}>
+            <Text strong>每周任务：</Text>
+            <ul style={{ paddingLeft: 20, margin: 0 }}>
+              <li>检测并清理孤儿文件</li>
+              <li>查看存储使用趋势</li>
+            </ul>
+            
+            <Text strong>每月任务：</Text>
+            <ul style={{ paddingLeft: 20, margin: 0 }}>
+              <li>清空回收站（30天前的文件）</li>
+              <li>审查存储统计报告</li>
+              <li>执行数据备份</li>
+            </ul>
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              💡 提示: 可以通过命令行运行维护脚本获得更多控制选项。
+              详见 <Text code>RESOURCE_MANAGEMENT_QUICK_START.md</Text>
+            </Text>
+          </Space>
         </Card>
       </Space>
     </AntdAdminLayout>
   );
 }
-

@@ -210,6 +210,7 @@ export default function FavoritesPage() {
                               audioDescription={audio.description}
                               size="sm"
                               showText={false}
+                              audioData={audio}
                             />
                             
                             <button

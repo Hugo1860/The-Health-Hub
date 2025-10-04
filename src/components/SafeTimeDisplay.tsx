@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Typography } from 'antd';
 import ClientOnly from './ClientOnly';
+import { useStaticSafeState, useStaticSafeEffect, useClientMounted } from '../hooks/useStaticSafe';
 
 const { Text } = Typography;
 
@@ -15,6 +15,7 @@ interface SafeTimeDisplayProps {
 
 /**
  * SafeTimeDisplay 组件用于安全地显示时间，避免 SSR 水合问题
+ * 使用静态边界安全的 Hook 来防止静态上下文违规
  */
 export default function SafeTimeDisplay({ 
   timestamp, 
@@ -22,9 +23,13 @@ export default function SafeTimeDisplay({
   type = 'secondary',
   fallback = '--'
 }: SafeTimeDisplayProps) {
-  const [formattedTime, setFormattedTime] = useState<string>(fallback);
+  const componentName = 'SafeTimeDisplay';
+  const [formattedTime, setFormattedTime] = useStaticSafeState<string>(fallback, componentName);
+  const hasMounted = useClientMounted(componentName);
 
-  useEffect(() => {
+  useStaticSafeEffect(() => {
+    if (!hasMounted) return;
+
     try {
       const date = new Date(timestamp);
       
@@ -50,7 +55,7 @@ export default function SafeTimeDisplay({
       console.warn('SafeTimeDisplay: Invalid timestamp', timestamp, error);
       setFormattedTime(fallback);
     }
-  }, [timestamp, format, fallback]);
+  }, [timestamp, format, fallback, hasMounted], componentName);
 
   const getTimeAgo = (date: Date): string => {
     const now = new Date();
@@ -68,7 +73,11 @@ export default function SafeTimeDisplay({
   };
 
   return (
-    <ClientOnly fallback={<Text type={type}>{fallback}</Text>}>
+    <ClientOnly 
+      fallback={<Text type={type}>{fallback}</Text>}
+      componentName={componentName}
+      enableBoundaryCheck={true}
+    >
       <Text type={type}>{formattedTime}</Text>
     </ClientOnly>
   );

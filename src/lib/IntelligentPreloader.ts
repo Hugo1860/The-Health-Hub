@@ -1,4 +1,4 @@
-import { optimizedDb } from './OptimizedDatabase';
+import { db } from './database';
 
 export interface PreloadStrategy {
   name: string;
@@ -133,7 +133,7 @@ export class IntelligentPreloader {
             `SELECT id FROM audios 
              WHERE (subject = ? OR tags LIKE ?) 
              AND id != ? 
-             ORDER BY uploadDate DESC 
+             ORDER BY "uploadDate" DESC 
              LIMIT 3`,
             [currentAudio.subject, `%${currentAudio.tags}%`, context.currentAudioId],
             { useCache: true, cacheTTL: 600000 }

@@ -1,786 +1,697 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { useAudioStore, AudioFile } from '../../../store/audioStore'
-import Link from 'next/link'
-import Head from 'next/head'
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import {
-  Layout,
-  Card,
   Row,
   Col,
+  Card,
   Typography,
   Button,
-  Breadcrumb,
-  Spin,
-  Result,
-  BackTop,
   Space,
-  Grid,
-  Input,
-  List,
-  Empty,
-  Alert,
-  Descriptions,
-  Avatar,
   Tag,
-  Divider,
-  Tooltip,
-  Badge,
-  Statistic,
-  message
-} from 'antd'
+  Rate,
+  Avatar,
+  List,
+  Input,
+  Spin,
+  Alert,
+  App
+} from 'antd';
 import {
-  HomeOutlined,
-  SoundOutlined,
-  ArrowLeftOutlined,
   PlayCircleOutlined,
   PauseCircleOutlined,
   HeartOutlined,
-  ShareAltOutlined,
-  ClockCircleOutlined,
+  HeartFilled,
   UserOutlined,
   CalendarOutlined,
-  FileTextOutlined,
-  SearchOutlined
-} from '@ant-design/icons'
-import { useAuth } from '../../../contexts/AuthContext'
-import ClientOnly from '../../../components/ClientOnly'
-import SafeTimeDisplay from '../../../components/SafeTimeDisplay'
+  ClockCircleOutlined,
+  SoundOutlined,
+  MessageOutlined
+} from '@ant-design/icons';
+import AntdHomeLayout from '../../../components/AntdHomeLayout';
+import { useAudioStore } from '../../../store/audioStore';
+import ShareButton from '../../../components/ShareButton';
+import '../../../styles/modern-home.css';
 
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
-const { Content } = Layout
-const { Title, Paragraph } = Typography
-const { useBreakpoint } = Grid
+// 简化的接口定义
+interface Audio {
+  id: string;
+  title: string;
+  description?: string; // 简介，限制150字
+  detailContent?: string; // 详情内容，限制3000字
+  detailImages?: string[]; // 详情图片URL数组
+  url: string;
+  speaker?: string;
+  duration?: number;
+  coverImage?: string;
+  uploadDate: string;
+  category?: { name: string; color: string; icon: string };
+  subcategory?: { name: string };
+}
 
-export default function AudioDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { setCurrentAudio } = useAudioStore()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const screens = useBreakpoint()
+interface Comment {
+  id: string;
+  content: string;
+  username: string;
+  createdAt: string;
+  status?: 'pending' | 'approved' | 'rejected';
+  moderatedAt?: string;
+  moderatedBy?: string;
+  moderationReason?: string;
+}
+
+// 简化的工具函数
+const formatDuration = (seconds?: number) => {
+  if (!seconds) return '未知';
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('zh-CN');
+};
+
+// 截取指定长度的文本
+const truncateText = (text: string, maxLength: number) => {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
+const fixAudioUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/')) return url;
+  return `/uploads/${url}`;
+};
+
+function AudioDetailContent() {
+  const params = useParams();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const { currentAudio, setCurrentAudio, setIsPlaying, isPlaying } = useAudioStore();
+  const { message } = App.useApp();
   
-  const [audioId, setAudioId] = useState<string>('')
-  const [audio, setAudio] = useState<AudioFile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [currentTime, setCurrentTime] = useState(0)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [showSearchResults, setShowSearchResults] = useState(false)
-  const [isFavorited, setIsFavorited] = useState(false)
-  const [favoriteLoading, setFavoriteLoading] = useState(false)
-  const [shareLoading, setShareLoading] = useState(false)
+  const [audio, setAudio] = useState<Audio | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newComment, setNewComment] = useState('');
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [relatedAudios, setRelatedAudios] = useState<Audio[]>([]);
 
-  // 判断是否为移动端
-  const isMobile = !screens.md
-  
-  // 获取用户认证信息
-  const { user } = useAuth()
+  const audioId = params.id as string;
 
-  useEffect(() => {
-    const initParams = async () => {
-      const resolvedParams = await params
-      setAudioId(resolvedParams.id)
-    }
-    initParams()
-  }, [params])
-
+  // 简化的数据获取
   useEffect(() => {
     if (audioId) {
-      fetchAudio()
-      
-      // 检查URL参数中的搜索查询和时间戳
-      const search = searchParams.get('search')
-      const timeParam = searchParams.get('t')
-      
-      if (search) {
-        setSearchQuery(search)
-        performSearch(search)
-      }
-      
-      if (timeParam) {
-        const time = parseFloat(timeParam)
-        if (!isNaN(time)) {
-          // 延迟跳转，确保音频已加载
-          setTimeout(() => {
-            handleSeekTo(time)
-          }, 1000)
-        }
-      }
-      
-      // 检查收藏状态
-      if (user) {
-        checkFavoriteStatus()
-      }
+      Promise.all([
+        fetchAudio(),
+        fetchComments(),
+        checkFavoriteStatus(),
+        fetchRelatedAudios()
+      ]).finally(() => setLoading(false));
     }
-  }, [audioId, searchParams, user])
+  }, [audioId]);
 
   const fetchAudio = async () => {
     try {
-      const response = await fetch(`/api/audio/${audioId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setAudio(data.audio)
+      console.log('📥 正在获取音频详情:', audioId);
+      const response = await fetch(`/api/audio/${audioId}`);
+      const data = await response.json();
+      console.log('📊 音频API响应:', { success: data.success, hasData: !!data.data });
+      
+      if (data.success) {
+        const audioData = {
+          ...data.data,
+          url: fixAudioUrl(data.data.url),
+          coverImage: data.data.coverImage ? fixAudioUrl(data.data.coverImage) : undefined
+        };
+        console.log('✅ 音频数据处理完成:', audioData.title);
+        setAudio(audioData);
       } else {
-        if (response.status === 404) {
-          setError('音频不存在')
-        } else {
-          setError('获取音频信息失败')
-        }
+        console.error('❌ 获取音频失败:', data.error);
+        message.error(data.error?.message || '获取音频详情失败');
       }
     } catch (error) {
-      console.error('获取音频信息失败:', error)
-      setError('获取音频信息失败')
-    } finally {
-      setLoading(false)
+      console.error('❌ 获取音频异常:', error);
+      message.error('获取音频详情失败');
     }
-  }
+  };
 
-  const handlePlay = (startPosition?: number) => {
-    if (!audio) return
-    
-    setCurrentAudio(audio)
-    
-    // 触发播放事件
-    const event = new CustomEvent('playAudio', { 
-      detail: { 
-        ...audio, 
-        startPosition: startPosition || 0 
-      } 
-    })
-    window.dispatchEvent(event)
-  }
-
-  const handleSeekTo = (time: number) => {
-    // 触发跳转到指定时间的事件
-    const event = new CustomEvent('seekToTime', { 
-      detail: { 
-        audioId: audio?.id,
-        time 
-      } 
-    })
-    window.dispatchEvent(event)
-    
-    // 如果音频没有在播放，则开始播放
-    handlePlay(time)
-  }
-
-  // 监听音频时间更新事件
-  useEffect(() => {
-    const handleTimeUpdate = (event: CustomEvent) => {
-      if (event.detail?.audioId === audioId) {
-        setCurrentTime(event.detail.currentTime || 0)
-      }
-    }
-
-    window.addEventListener('audioTimeUpdate', handleTimeUpdate as EventListener)
-    
-    return () => {
-      window.removeEventListener('audioTimeUpdate', handleTimeUpdate as EventListener)
-    }
-  }, [audioId])
-
-  // 执行搜索
-  const performSearch = async (query: string) => {
-    if (!query.trim() || query.trim().length < 2) {
-      setSearchResults([])
-      setShowSearchResults(false)
-      return
-    }
-
+  const fetchComments = async () => {
     try {
-      const response = await fetch(`/api/transcriptions/search?q=${encodeURIComponent(query.trim())}&audioId=${audioId}`)
-      if (response.ok) {
-        const data = await response.json()
-        const currentAudioResults = data.results.find((r: any) => r.transcription.audioId === audioId)
-        setSearchResults(currentAudioResults?.matches || [])
-        setShowSearchResults(true)
+      const response = await fetch(`/api/comments?audioId=${audioId}&limit=10`);
+      const data = await response.json();
+      if (data.success) {
+        setComments(data.data?.comments || []);
       }
     } catch (error) {
-      console.error('Search error:', error)
-      setSearchResults([])
+      console.error('获取评论失败:', error);
     }
-  }
+  };
 
-  // 检查收藏状态
   const checkFavoriteStatus = async () => {
-    if (!user || !audioId) return
-    
+    if (!session) return;
     try {
-      const response = await fetch(`/api/favorites?audioId=${audioId}`)
-      if (response.ok) {
-        const data = await response.json()
-        setIsFavorited(data.isFavorited)
+      const response = await fetch(`/api/favorites?audioId=${audioId}`);
+      const data = await response.json();
+      if (data.success) {
+        setIsFavorited(data.data.isFavorited);
       }
     } catch (error) {
-      console.error('检查收藏状态失败:', error)
+      console.error('检查收藏状态失败:', error);
     }
-  }
+  };
 
-  // 切换收藏状态
-  const handleToggleFavorite = async () => {
-    if (!user) {
-      message.warning('请先登录')
-      return
-    }
-
-    setFavoriteLoading(true)
+  const fetchRelatedAudios = async () => {
     try {
-      if (isFavorited) {
-        // 取消收藏
-        const response = await fetch(`/api/favorites?audioId=${audioId}`, {
-          method: 'DELETE'
-        })
-
-        if (response.ok) {
-          setIsFavorited(false)
-          message.success('已取消收藏')
-        } else {
-          const data = await response.json()
-          message.error(data.error || '取消收藏失败')
-        }
-      } else {
-        // 添加收藏
-        const response = await fetch('/api/favorites', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ audioId })
-        })
-
-        if (response.ok) {
-          setIsFavorited(true)
-          message.success('收藏成功')
-        } else {
-          const data = await response.json()
-          message.error(data.error || '收藏失败')
-        }
+      const response = await fetch(`/api/audio/${audioId}/related?limit=5`);
+      const data = await response.json();
+      if (data.success) {
+        setRelatedAudios(data.data);
       }
     } catch (error) {
-      message.error('操作失败，请稍后重试')
-    } finally {
-      setFavoriteLoading(false)
+      console.error('获取相关音频失败:', error);
     }
-  }
+  };
 
-  // 分享功能
-  const handleShare = async () => {
-    if (!audio) return
+  // 简化的事件处理
+  const handlePlay = () => {
+    if (!audio) return;
     
-    setShareLoading(true)
+    if (currentAudio?.id === audio.id && isPlaying) {
+      setIsPlaying(false);
+    } else {
+      setCurrentAudio({
+        id: audio.id,
+        title: audio.title,
+        description: audio.description || '',
+        url: audio.url,
+        filename: audio.url.split('/').pop() || audio.title,
+        uploadDate: audio.uploadDate,
+        duration: audio.duration || 0,
+        category: audio.category ? { 
+          id: 'unknown', 
+          name: audio.category.name, 
+          color: audio.category.color, 
+          icon: audio.category.icon 
+        } : { id: 'unknown', name: '未分类' },
+        speaker: audio.speaker || '未知'
+      });
+      setIsPlaying(true);
+    }
+  };
+
+  const handleComment = async () => {
+    if (!session) {
+      message.warning('请先登录后再评论');
+      return;
+    }
+    if (!newComment.trim()) {
+      message.warning('请输入评论内容');
+      return;
+    }
+
     try {
-      const shareUrl = `${window.location.origin}/audio/${audioId}`
-      const shareText = `${audio.title} - 医学生物科技音频博客`
-      
-      // 尝试使用原生分享API
-      if (navigator.share) {
-        await navigator.share({
-          title: shareText,
-          text: audio.description || `收听这个精彩的医学音频内容：${audio.title}`,
-          url: shareUrl
-        })
-        message.success('分享成功')
-      } else {
-        // 降级到复制链接
-        await navigator.clipboard.writeText(shareUrl)
-        message.success('链接已复制到剪贴板')
-      }
-    } catch (error: unknown) {
-      // 如果分享被取消或失败，尝试复制链接
-      const isAbortError =
-        error instanceof Error
-          ? error.name === 'AbortError'
-          : typeof (error as any)?.name === 'string' && (error as any).name === 'AbortError'
-      
-      if (!isAbortError) { // 用户取消分享不显示错误
-        try {
-          const shareUrl = `${window.location.origin}/audio/${audioId}`
-          await navigator.clipboard.writeText(shareUrl)
-          message.success('链接已复制到剪贴板')
-        } catch (clipboardError: unknown) {
-          message.error('分享失败，请稍后重试')
-        }
-      }
-    } finally {
-      setShareLoading(false)
-    }
-  }
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ audioId, content: newComment.trim() }),
+      });
 
-  // 高亮搜索结果
-  const getHighlightedText = (text: string, query: string) => {
-    if (!query.trim()) return text
-    
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
-    return text.replace(regex, '<mark style="background-color: #fff2e6; padding: 2px 4px; border-radius: 4px; font-weight: 500;">$1</mark>')
-  }
+      const data = await response.json();
+      if (data.success) {
+        setNewComment('');
+        message.success(data.message || '评论已提交，等待管理员审核后显示');
+        fetchComments(); // 重新获取评论列表
+      } else {
+        message.error(data.error?.message || data.error || '发表评论失败');
+      }
+    } catch (error) {
+      message.error('发表评论失败');
+    }
+  };
+
+  const handleFavorite = async () => {
+    if (!session) {
+      message.warning('请先登录后再收藏');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioId,
+          action: isFavorited ? 'remove' : 'add'
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setIsFavorited(!isFavorited);
+        message.success(data.message);
+      } else {
+        message.error('收藏操作失败');
+      }
+    } catch (error) {
+      message.error('收藏操作失败');
+    }
+  };
 
   if (loading) {
     return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'center',
-          padding: '24px'
-        }}>
-          <Spin size="large" tip="加载中..." />
-        </Content>
-      </Layout>
-    )
-  }
-
-  if (error) {
-    return (
-      <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ padding: '24px' }}>
-          <Row justify="center">
-            <Col xs={24} sm={20} md={16} lg={12}>
-              <Result
-                status="error"
-                title="加载失败"
-                subTitle={error}
-                extra={
-                  <Link href="/">
-                    <Button type="primary" icon={<HomeOutlined />}>
-                      返回首页
-                    </Button>
-                  </Link>
-                }
-              />
-            </Col>
-          </Row>
-        </Content>
-      </Layout>
-    )
+      <AntdHomeLayout>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+          <Spin size="large" />
+        </div>
+      </AntdHomeLayout>
+    );
   }
 
   if (!audio) {
-    return null
+    return (
+      <AntdHomeLayout>
+        <div className="modern-home-container" style={{ maxWidth: 800, margin: '0 auto', padding: '48px 24px' }}>
+          <Alert
+            message="音频不存在"
+            description="您访问的音频可能已被删除或不存在"
+            type="error"
+            showIcon
+            style={{ borderRadius: 16 }}
+            action={
+              <Button 
+                className="modern-btn-primary" 
+                onClick={() => router.push('/')}
+                style={{ borderRadius: 14 }}
+              >
+                返回首页
+              </Button>
+            }
+          />
+        </div>
+      </AntdHomeLayout>
+    );
   }
 
+  const isCurrentlyPlaying = currentAudio?.id === audio.id && isPlaying;
+
   return (
-    <>
-      <Head>
-        <title>{audio.title} - 医学生物科技音频博客</title>
-        <meta name="description" content={audio.description || `收听这个精彩的医学音频内容：${audio.title}`} />
-        
-        {/* Open Graph / Facebook */}
-        <meta property="og:type" content="article" />
-        <meta property="og:title" content={`${audio.title} - 医学生物科技音频博客`} />
-        <meta property="og:description" content={audio.description || `收听这个精彩的医学音频内容：${audio.title}`} />
-        <meta property="og:site_name" content="医学生物科技音频博客" />
-        
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={`${audio.title} - 医学生物科技音频博客`} />
-        <meta name="twitter:description" content={audio.description || `收听这个精彩的医学音频内容：${audio.title}`} />
-      </Head>
-      
-      <Layout style={{ minHeight: '100vh' }}>
-        <Content style={{ padding: isMobile ? '16px' : '24px' }}>
-          <Row justify="center">
-            <Col xs={24} sm={22} md={20} lg={18} xl={16}>
-              {/* 面包屑导航 */}
-              <Breadcrumb 
-                style={{ marginBottom: 16 }}
-                items={[
-                  {
-                    title: (
-                      <Link href="/">
-                        <Space>
-                          <HomeOutlined />
-                          音频
-                        </Space>
-                      </Link>
-                    )
-                  },
-                  {
-                    title: (
-                      <Link href={`/?subject=${encodeURIComponent(audio.subject || '')}`}>
-                        {audio.subject || '未分类'}
-                      </Link>
-                    )
-                  },
-                  {
-                    title: audio.title
-                  }
-                ]}
-              />
-
-              {/* 音频信息卡片 */}
-              <Card 
-                style={{ marginBottom: 24 }}
-                actions={[
-                  <Tooltip key="play" title="播放音频">
-                    <Button 
-                      type="primary" 
-                      icon={<PlayCircleOutlined />} 
-                      size="large"
-                      onClick={() => handlePlay()}
-                    >
-                      播放
-                    </Button>
-                  </Tooltip>,
-                  <Tooltip key="favorite" title={isFavorited ? "取消收藏" : "收藏"}>
-                    <Button 
-                      icon={<HeartOutlined />} 
-                      size="large"
-                      loading={favoriteLoading}
-                      onClick={handleToggleFavorite}
-                      type={isFavorited ? "primary" : "default"}
-                      danger={isFavorited}
-                      disabled={!user}
-                    >
-                      {isFavorited ? "已收藏" : "收藏"}
-                    </Button>
-                  </Tooltip>,
-                  <Tooltip key="share" title="分享音频">
-                    <Button 
-                      icon={<ShareAltOutlined />} 
-                      size="large"
-                      loading={shareLoading}
-                      onClick={handleShare}
-                    >
-                      分享
-                    </Button>
-                  </Tooltip>,
-                  <Link key="back" href="/">
-                    <Button icon={<ArrowLeftOutlined />} size="large">
-                      返回首页
-                    </Button>
-                  </Link>
-                ]}
-              >
-                <Row gutter={[24, 16]} align="top">
-                  <Col xs={24} sm={4} md={3}>
-                    <Avatar 
-                      size={isMobile ? 64 : 80}
-                      icon={<SoundOutlined />}
-                      style={{ 
-                        backgroundColor: '#13C2C2',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    />
-                  </Col>
-                  
-                  <Col xs={24} sm={20} md={21}>
-                    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                      <div>
-                        <Title level={isMobile ? 3 : 2} style={{ margin: 0, marginBottom: 8 }}>
-                          {audio.title}
-                        </Title>
-                        
-                        <Space size="small" wrap>
-                          <Tag color="blue" icon={<FileTextOutlined />}>
-                            {audio.subject || '未分类'}
-                          </Tag>
-                          <Tag color="green" icon={<CalendarOutlined />}>
-                            <SafeTimeDisplay timestamp={audio.uploadDate} format="date" />
-                          </Tag>
-                          {audio.duration && (
-                            <Tag color="orange" icon={<ClockCircleOutlined />}>
-                              {Math.floor(audio.duration / 60)}:{(audio.duration % 60).toFixed(0).padStart(2, '0')}
-                            </Tag>
-                          )}
-                        </Space>
-                      </div>
-                      
-                      {audio.description && (
-                        <Paragraph 
-                          style={{ 
-                            margin: 0, 
-                            fontSize: 16,
-                            color: '#666',
-                            lineHeight: 1.6
-                          }}
-                          ellipsis={{ rows: 3, expandable: true, symbol: '展开' }}
-                        >
-                          {audio.description}
-                        </Paragraph>
-                      )}
-                      
-                      <Descriptions 
-                        size="small" 
-                        column={isMobile ? 1 : 2}
-                        bordered={false}
-                        colon={false}
-                      >
-                        <Descriptions.Item 
-                          label={<Space><UserOutlined />上传者</Space>}
-                        >
-                          管理员
-                        </Descriptions.Item>
-                        <Descriptions.Item 
-                          label={<Space><ClockCircleOutlined />上传时间</Space>}
-                        >
-                          <SafeTimeDisplay timestamp={audio.uploadDate} format="datetime" />
-                        </Descriptions.Item>
-                        {audio.tags && audio.tags.length > 0 && (
-                          <Descriptions.Item 
-                            label="标签" 
-                            span={isMobile ? 1 : 2}
-                          >
-                            <Space size="small" wrap>
-                              {audio.tags.map((tag, index) => (
-                                <Tag key={index} color="processing">
-                                  {tag}
-                                </Tag>
-                              ))}
-                            </Space>
-                          </Descriptions.Item>
-                        )}
-                      </Descriptions>
-                    </Space>
-                  </Col>
-                </Row>
-
-              </Card>
-
-              {/* 搜索功能 */}
-              <Card 
-                title={
-                  <Space>
-                    <SearchOutlined style={{ color: '#00529B' }} />
-                    <span>搜索此音频</span>
-                    {showSearchResults && searchResults.length > 0 && (
-                      <Badge count={searchResults.length} style={{ backgroundColor: '#52c41a' }} />
-                    )}
-                  </Space>
-                }
-                style={{ marginBottom: 24 }}
-                size={isMobile ? "small" : "default"}
-                extra={
-                  searchQuery && (
-                    <Button 
-                      size="small" 
-                      onClick={() => {
-                        setSearchQuery('')
-                        setSearchResults([])
-                        setShowSearchResults(false)
-                      }}
-                    >
-                      清除
-                    </Button>
-                  )
-                }
-              >
-                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                  <Input.Search
-                    placeholder="在此音频中搜索内容..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value)
-                      if (e.target.value.trim()) {
-                        performSearch(e.target.value)
-                      } else {
-                        setSearchResults([])
-                        setShowSearchResults(false)
-                      }
-                    }}
-                    size="large"
-                    allowClear
-                    enterButton="搜索"
-                  />
-
-                  {/* 搜索结果 */}
-                  {showSearchResults && searchResults.length > 0 && (
-                    <>
-                      <Divider orientation="left">
-                        <Space>
-                          <Badge count={searchResults.length} style={{ backgroundColor: '#52c41a' }} />
-                          <span>搜索结果</span>
-                        </Space>
-                      </Divider>
-                      
-                      <List
-                        dataSource={searchResults}
-                        renderItem={(match: any, index: number) => (
-                          <List.Item
-                            key={`${match.segment.id}-${index}`}
-                            actions={[
-                              <Tooltip key="jump" title="跳转到此时间点播放">
-                                <Button
-                                  type="primary"
-                                  size="small"
-                                  icon={<PlayCircleOutlined />}
-                                  onClick={() => handleSeekTo(match.segment.startTime)}
-                                >
-                                  跳转播放
-                                </Button>
-                              </Tooltip>
-                            ]}
-                          >
-                            <List.Item.Meta
-                              avatar={
-                                <Avatar 
-                                  size="small" 
-                                  style={{ backgroundColor: '#f56a00' }}
-                                >
-                                  {index + 1}
-                                </Avatar>
-                              }
-                              description={
-                                <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                                  <Typography.Text
-                                    style={{ fontSize: 14, lineHeight: 1.6 }}
-                                    dangerouslySetInnerHTML={{
-                                      __html: getHighlightedText(match.segment.text, searchQuery)
-                                    }}
-                                  />
-                                  <Space size="small">
-                                    <Tag color="blue" icon={<ClockCircleOutlined />}>
-                                      {Math.floor(match.segment.startTime / 60)}:{(match.segment.startTime % 60).toFixed(0).padStart(2, '0')}
-                                    </Tag>
-                                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                                      至 {Math.floor(match.segment.endTime / 60)}:{(match.segment.endTime % 60).toFixed(0).padStart(2, '0')}
-                                    </Typography.Text>
-                                  </Space>
-                                </Space>
-                              }
-                            />
-                          </List.Item>
-                        )}
-                      />
-                    </>
-                  )}
-
-                  {showSearchResults && searchResults.length === 0 && searchQuery.trim() && (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description={
-                        <Space direction="vertical" align="center">
-                          <Typography.Text type="secondary">
-                            在此音频中未找到匹配的内容
-                          </Typography.Text>
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            尝试使用不同的关键词搜索
-                          </Typography.Text>
-                        </Space>
-                      }
-                    />
-                  )}
-                </Space>
-              </Card>
-
-              {/* 转录文本 */}
-              {false && (
-                <Card 
-                  title={
-                    <Space>
-                      <FileTextOutlined style={{ color: '#00529B' }} />
-                      <span>转录文本</span>
-                      <Tag color="processing">全文</Tag>
-                    </Space>
-                  }
-                  style={{ marginBottom: 24 }}
-                  size={isMobile ? "small" : "default"}
-                  extra={
-                    <Space>
-                      <Statistic 
-                        title="字数" 
-                        value={0} 
-                        suffix="字"
-                        style={{ minWidth: 80 }}
-                      />
-                    </Space>
-                  }
-                >
-                  <div style={{ 
-                    backgroundColor: '#fafafa',
-                    padding: '16px',
-                    borderRadius: '6px',
-                    border: '1px solid #f0f0f0'
-                  }}>
-                    <Paragraph
-                      style={{ 
-                        whiteSpace: 'pre-wrap',
-                        lineHeight: 1.8,
-                        fontSize: 14,
-                        margin: 0,
-                        color: '#262626'
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html: "转录功能暂时不可用"
-                      }}
-                    />
-                  </div>
-                </Card>
-              )}
-
-              {/* 音频统计信息 */}
-              <ClientOnly>
-                <Card
-                  title={
-                    <Space>
-                      <SoundOutlined style={{ color: '#00529B' }} />
-                      <span>音频统计</span>
-                    </Space>
-                  }
-                  style={{ marginBottom: 24 }}
-                  size={isMobile ? "small" : "default"}
-                >
-                  <Row gutter={16}>
-                    <Col xs={12} sm={6}>
-                      <Statistic
-                        title="播放次数"
-                        value={0}
-                        prefix={<PlayCircleOutlined />}
-                      />
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Statistic
-                        title="文件大小"
-                        value={0}
-                        suffix="MB"
-                      />
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <div>
-                        <div style={{ fontSize: '14px', color: '#8c8c8c', marginBottom: '4px' }}>上传时间</div>
-                        <SafeTimeDisplay timestamp={audio.uploadDate} format="date" />
-                      </div>
-                    </Col>
-                    <Col xs={12} sm={6}>
-                      <Statistic
-                        title="音频时长"
-                        value={audio.duration ? `${Math.floor(audio.duration / 60)}:${(audio.duration % 60).toFixed(0).padStart(2, '0')}` : '--'}
-                      />
-                    </Col>
-                  </Row>
-                </Card>
-              </ClientOnly>
-
-              {/* 相关音频推荐 */}
-              <Card
-                title={
-                  <Space>
-                    <SoundOutlined style={{ color: '#00529B' }} />
-                    <span>相关推荐</span>
-                    <Tag color="processing">同类音频</Tag>
-                  </Space>
-                }
-                style={{ marginBottom: 24 }}
-                size={isMobile ? "small" : "default"}
-              >
-                <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                  <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description="暂无相关推荐"
-                  />
+    <AntdHomeLayout>
+      <div className="modern-home-container" style={{ maxWidth: 1400, margin: '0 auto', padding: '24px', minHeight: 'auto' }}>
+        <Row gutter={[24, 24]}>
+          {/* 左侧音频信息 */}
+          <Col xs={24} lg={8}>
+            <Card className="modern-card" style={{ borderRadius: 16, border: '1px solid rgba(0, 0, 0, 0.06)' }}>
+            {/* 封面 */}
+            <div style={{ marginBottom: 16, textAlign: 'center' }}>
+              {audio.coverImage ? (
+                <img 
+                  src={audio.coverImage} 
+                  alt={audio.title}
+                  style={{ 
+                    width: '100%', 
+                    maxWidth: 300, 
+                    borderRadius: 16,
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
+                  }}
+                />
+              ) : (
+                <div style={{ 
+                  width: '100%', 
+                  aspectRatio: '1', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  backgroundColor: '#f5f5f5',
+                  borderRadius: 16,
+                  border: '1px solid rgba(0, 0, 0, 0.06)'
+                }}>
+                  <SoundOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
                 </div>
-              </Card>
+              )}
+            </div>
+
+            {/* 基本信息 */}
+            <Title level={3} className="modern-title" style={{ marginBottom: 16 }}>{audio.title}</Title>
+            
+            {audio.speaker && (
+              <div style={{ marginBottom: 12 }}>
+                <Text type="secondary">
+                  <UserOutlined style={{ marginRight: 8 }} />
+                  主讲人：{audio.speaker}
+                </Text>
+              </div>
+            )}
+            
+            {/* 分类标签 */}
+            <div style={{ marginBottom: 16 }}>
+              <Space wrap>
+                {audio.category && (
+                  <Tag className="modern-tag modern-tag-primary" color={audio.category.color}>
+                    {audio.category.icon} {audio.category.name}
+                  </Tag>
+                )}
+                {audio.subcategory && (
+                  <Tag className="modern-tag">{audio.subcategory.name}</Tag>
+                )}
+              </Space>
+            </div>
+            
+            {/* 时间信息 */}
+            <div style={{ marginBottom: 16 }}>
+              <Space direction="vertical" size="small">
+                <Text type="secondary">
+                  <CalendarOutlined style={{ marginRight: 8 }} />
+                  上传时间：{formatDate(audio.uploadDate)}
+                </Text>
+                <Text type="secondary">
+                  <ClockCircleOutlined style={{ marginRight: 8 }} />
+                  音频时长：{formatDuration(audio.duration)}
+                </Text>
+              </Space>
+            </div>
+
+            {/* 操作按钮 */}
+            <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Button
+                type="primary"
+                className="modern-btn-primary"
+                icon={isCurrentlyPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                onClick={handlePlay}
+                size="large"
+                block
+                style={{ borderRadius: 14 }}
+              >
+                {isCurrentlyPlaying ? '暂停播放' : '开始播放'}
+              </Button>
               
-            </Col>
-          </Row>
-        </Content>
-        
-        {/* 返回顶部按钮 */}
-        <BackTop />
-      </Layout>
-    </>
-  )
+              <Space style={{ width: '100%' }}>
+                <Button
+                  className="modern-btn-secondary"
+                  icon={isFavorited ? <HeartFilled /> : <HeartOutlined />}
+                  onClick={handleFavorite}
+                  style={{ flex: 1, borderRadius: 14 }}
+                >
+                  {isFavorited ? '已收藏' : '收藏'}
+                </Button>
+                
+                <ShareButton
+                  audioId={audio.id}
+                  audioTitle={audio.title}
+                  audioDescription={audio.description || ''}
+                  audioData={{
+                    id: audio.id,
+                    title: audio.title,
+                    description: audio.description || '',
+                    url: audio.url,
+                    filename: audio.url.split('/').pop() || audio.title,
+                    uploadDate: audio.uploadDate,
+                    duration: audio.duration || 0,
+                    speaker: audio.speaker || '未知',
+                    coverImage: audio.coverImage,
+                    category: audio.category ? {
+                      id: 'unknown',
+                      name: audio.category.name,
+                      color: audio.category.color,
+                      icon: audio.category.icon
+                    } : undefined
+                  }}
+                />
+              </Space>
+            </Space>
+
+            {/* 简介 */}
+            {audio.description && (
+              <div style={{ marginTop: 16 }}>
+                <Title level={5} className="modern-title">简介</Title>
+                <Text className="modern-text">{truncateText(audio.description, 150)}</Text>
+                {audio.description.length > 150 && (
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '4px' }}>
+                    （已截取前150字，完整内容请查看下方详情介绍）
+                  </Text>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* 相关推荐 */}
+          {relatedAudios.length > 0 && (
+            <Card 
+              title={<span className="modern-title" style={{ fontSize: '16px' }}>相关推荐</span>} 
+              size="small" 
+              className="modern-card"
+              style={{ marginTop: 16, borderRadius: 16, border: '1px solid rgba(0, 0, 0, 0.06)' }}>
+              <List
+                size="small"
+                dataSource={relatedAudios}
+                renderItem={(item) => (
+                  <List.Item
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => router.push(`/audio/${item.id}`)}
+                  >
+                    <List.Item.Meta
+                      avatar={<Avatar src={item.coverImage} icon={<SoundOutlined />} />}
+                      title={item.title}
+                      description={`${item.speaker || '未知'} · ${formatDuration(item.duration)}`}
+                    />
+                  </List.Item>
+                )}
+              />
+            </Card>
+          )}
+        </Col>
+
+        {/* 右侧内容区域 */}
+        <Col xs={24} lg={16}>
+          {/* 音频详细内容介绍 */}
+          <Card className="modern-card" style={{ marginBottom: 24, borderRadius: 16, border: '1px solid rgba(0, 0, 0, 0.06)' }}>
+            <Title level={4} className="modern-title">
+              <SoundOutlined style={{ marginRight: 8 }} />
+              内容介绍
+            </Title>
+            
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: 'rgba(245, 247, 250, 0.6)', 
+              borderRadius: '16px',
+              border: '1px solid rgba(0, 0, 0, 0.06)',
+              backdropFilter: 'blur(10px)'
+            }}>
+              {(audio.detailContent || audio.description || (audio.detailImages && audio.detailImages.length > 0)) ? (
+                <div>
+                  {/* 详情内容 */}
+                  {audio.detailContent && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <Text style={{ 
+                        fontSize: '16px', 
+                        lineHeight: '1.8',
+                        color: '#333',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {truncateText(audio.detailContent, 3000)}
+                      </Text>
+                      {audio.detailContent.length > 3000 && (
+                        <Text type="secondary" style={{ fontSize: '12px', display: 'block', marginTop: '8px' }}>
+                          （内容已截取前3000字）
+                        </Text>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 详情图片 */}
+                  {audio.detailImages && audio.detailImages.length > 0 && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <Title level={5} className="modern-title" style={{ marginBottom: '12px', fontSize: '16px' }}>
+                        相关图片
+                      </Title>
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                        gap: '12px' 
+                      }}>
+                        {audio.detailImages.map((imageUrl, index) => (
+                          <div key={index} style={{ 
+                            position: 'relative',
+                            borderRadius: '12px',
+                            overflow: 'hidden',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                            transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            border: '1px solid rgba(0, 0, 0, 0.04)'
+                          }}>
+                            <img
+                              src={imageUrl}
+                              alt={`详情图片 ${index + 1}`}
+                              style={{
+                                width: '100%',
+                                height: '150px',
+                                objectFit: 'cover',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => {
+                                // 可以添加图片预览功能
+                                window.open(imageUrl, '_blank');
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'scale(1.05)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'scale(1)';
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* 如果没有详情内容，显示简介 */}
+                  {!audio.detailContent && audio.description && (
+                    <div style={{ marginBottom: '20px' }}>
+                      <Text style={{ 
+                        fontSize: '16px', 
+                        lineHeight: '1.8',
+                        color: '#333',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {audio.description}
+                      </Text>
+                    </div>
+                  )}
+                  
+                  {/* 音频详细信息 */}
+                  <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #e8e8e8' }}>
+                    <Row gutter={[16, 16]}>
+                      <Col xs={24} sm={12}>
+                        <div style={{ marginBottom: '12px' }}>
+                          <Text strong style={{ color: '#666' }}>音频标题：</Text>
+                          <Text style={{ marginLeft: '8px' }}>{audio.title}</Text>
+                        </div>
+                        {audio.speaker && (
+                          <div style={{ marginBottom: '12px' }}>
+                            <Text strong style={{ color: '#666' }}>主讲人：</Text>
+                            <Text style={{ marginLeft: '8px' }}>{audio.speaker}</Text>
+                          </div>
+                        )}
+                        <div style={{ marginBottom: '12px' }}>
+                          <Text strong style={{ color: '#666' }}>音频时长：</Text>
+                          <Text style={{ marginLeft: '8px' }}>{formatDuration(audio.duration)}</Text>
+                        </div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <div style={{ marginBottom: '12px' }}>
+                          <Text strong style={{ color: '#666' }}>上传时间：</Text>
+                          <Text style={{ marginLeft: '8px' }}>{formatDate(audio.uploadDate)}</Text>
+                        </div>
+                        {audio.category && (
+                          <div style={{ marginBottom: '12px' }}>
+                            <Text strong style={{ color: '#666' }}>所属分类：</Text>
+                            <Tag color={audio.category.color} style={{ marginLeft: '8px' }}>
+                              {audio.category.icon} {audio.category.name}
+                            </Tag>
+                          </div>
+                        )}
+                        {audio.subcategory && (
+                          <div style={{ marginBottom: '12px' }}>
+                            <Text strong style={{ color: '#666' }}>子分类：</Text>
+                            <Tag style={{ marginLeft: '8px' }}>{audio.subcategory.name}</Tag>
+                          </div>
+                        )}
+                      </Col>
+                    </Row>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px 20px',
+                  color: '#999'
+                }}>
+                  <SoundOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
+                  <div>暂无详细内容介绍</div>
+                  <div style={{ fontSize: '12px', marginTop: '8px' }}>
+                    简介限制150字，详情内容限制3000字，支持图片上传
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* 评论区域 */}
+          <Card className="modern-card" style={{ borderRadius: 16, border: '1px solid rgba(0, 0, 0, 0.06)' }}>
+            <Title level={4} className="modern-title">
+              <MessageOutlined style={{ marginRight: 8 }} />
+              评论 ({comments.length})
+            </Title>
+            
+            {/* 发表评论 */}
+            {session ? (
+              <div style={{ marginBottom: 24, padding: 16, backgroundColor: '#fafafa', borderRadius: 12 }}>
+                <TextArea
+                  rows={4}
+                  placeholder="写下你的评论..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  style={{ marginBottom: 12, borderRadius: 12 }}
+                />
+                <Button 
+                  type="primary" 
+                  className="modern-btn-primary"
+                  onClick={handleComment}
+                  style={{ borderRadius: 14 }}
+                >
+                  发表评论
+                </Button>
+              </div>
+            ) : (
+              <Alert
+                message="请登录后发表评论"
+                type="info"
+                showIcon
+                style={{ marginBottom: 24, borderRadius: 12 }}
+              />
+            )}
+
+            {/* 评论列表 */}
+            <List
+              dataSource={comments}
+              locale={{ emptyText: '暂无评论' }}
+              renderItem={(comment) => (
+                <List.Item>
+                  <List.Item.Meta
+                    avatar={<Avatar icon={<UserOutlined />} />}
+                    title={
+                      <Space>
+                        <Text strong>{comment.username}</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {formatDate(comment.createdAt)}
+                        </Text>
+                      </Space>
+                    }
+                    description={comment.content}
+                  />
+                </List.Item>
+              )}
+            />
+          </Card>
+        </Col>
+      </Row>
+      </div>
+    </AntdHomeLayout>
+  );
+}
+
+export default function AudioDetailPage() {
+  return (
+    <App>
+      <AudioDetailContent />
+    </App>
+  );
 }

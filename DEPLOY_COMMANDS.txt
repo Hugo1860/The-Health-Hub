@@ -1,0 +1,166 @@
+================================
+Health Hub 部署命令速查表
+================================
+
+📦 本地Mac上传部署
+-----------------------------------
+./upload-and-deploy.sh ubuntu@server-ip
+
+📦 服务器一键部署
+-----------------------------------
+./deploy-ubuntu-simple.sh
+
+📦 手动Docker部署
+-----------------------------------
+# 1. 配置环境
+cp env.cloud.template .env.production
+nano .env.production
+
+# 2. 构建和启动
+docker compose build --platform linux/amd64
+docker compose up -d
+
+# 3. 初始化数据库
+docker compose exec -T db mysql -u health_app -pappPass123! health_hub < database/migrations/002_create_user_action_logs.sql
+
+📊 服务管理命令
+-----------------------------------
+# 查看状态
+docker compose ps
+
+# 查看日志
+docker compose logs -f app
+
+# 重启服务
+docker compose restart
+
+# 停止服务
+docker compose down
+
+# 完全重建
+docker compose down -v
+docker compose build --no-cache
+docker compose up -d
+
+🔍 健康检查
+-----------------------------------
+./server-health-check.sh
+
+📈 数据库管理
+-----------------------------------
+# 进入数据库
+docker compose exec db mysql -u health_app -pappPass123! health_hub
+
+# 备份
+docker compose exec db mysqldump -u root -prootpass123! health_hub > backup_$(date +%Y%m%d).sql
+
+# 恢复
+docker compose exec -T db mysql -u health_app -pappPass123! health_hub < backup.sql
+
+🔐 生成随机密钥
+-----------------------------------
+openssl rand -base64 32
+
+🛡️ 防火墙配置
+-----------------------------------
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 3000/tcp
+sudo ufw enable
+
+🌐 Nginx反向代理
+-----------------------------------
+sudo apt install nginx -y
+sudo nano /etc/nginx/sites-available/health-hub
+sudo ln -s /etc/nginx/sites-available/health-hub /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+
+🔒 SSL证书
+-----------------------------------
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d your-domain.com
+
+📝 日志查看
+-----------------------------------
+# 应用日志
+docker compose logs app --tail=100
+
+# 数据库日志
+docker compose logs db --tail=50
+
+# 实时日志
+docker compose logs -f
+
+# 容器内日志
+docker compose exec app cat /app/logs/app.log
+
+🔄 更新部署
+-----------------------------------
+git pull
+docker compose build app
+docker compose up -d
+
+❌ 故障排查
+-----------------------------------
+# 检查容器状态
+docker compose ps
+
+# 检查网络
+docker compose exec app ping db
+
+# 检查环境变量
+docker compose exec app env | grep DB_
+
+# 重启特定服务
+docker compose restart app
+docker compose restart db
+
+# 查看容器资源使用
+docker stats
+
+💾 备份命令（添加到crontab）
+-----------------------------------
+# 每天2点备份数据库
+0 2 * * * docker compose exec db mysqldump -u root -prootpass123! health_hub > /backups/db_$(date +\%Y\%m\%d).sql
+
+# 每天3点备份文件
+0 3 * * * tar -czf /backups/uploads_$(date +\%Y\%m\%d).tar.gz /path/to/public/uploads/
+
+🔧 PM2部署（不使用Docker）
+-----------------------------------
+# 安装Node.js
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install nodejs -y
+
+# 构建和启动
+npm install
+npm run build
+npm install -g pm2
+pm2 start npm --name health-hub -- start
+pm2 startup
+pm2 save
+
+# PM2管理
+pm2 list
+pm2 logs health-hub
+pm2 restart health-hub
+pm2 stop health-hub
+
+================================
+快速访问
+================================
+应用地址: http://server-ip:3000
+健康检查: http://server-ip:3000/api/health
+MySQL端口: server-ip:3307
+
+================================
+重要提醒
+================================
+1. 修改所有默认密码
+2. 生成新的认证密钥
+3. 配置防火墙
+4. 设置自动备份
+5. 配置SSL证书
+

@@ -1,6 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { AudioFile } from '@/store/audioStore'
+import ShareCardModal from './ShareCardModal'
+import MobileShareCardModal from './MobileShareCardModal'
 
 interface ShareButtonProps {
   audioId: string
@@ -8,6 +11,8 @@ interface ShareButtonProps {
   audioDescription?: string
   size?: 'sm' | 'md' | 'lg'
   showText?: boolean
+  // 新增：完整的音频数据，用于生成分享卡片
+  audioData?: AudioFile
 }
 
 interface ShareOption {
@@ -22,10 +27,13 @@ export default function ShareButton({
   audioTitle,
   audioDescription = '',
   size = 'md',
-  showText = true
+  showText = true,
+  audioData
 }: ShareButtonProps) {
   const [showDropdown, setShowDropdown] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showShareCardModal, setShowShareCardModal] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   const sizeClasses = {
     sm: 'w-4 h-4',
@@ -138,6 +146,45 @@ export default function ShareButton({
     }
   }
 
+  const handleGenerateShareCard = () => {
+    setShowDropdown(false)
+    setShowShareCardModal(true)
+  }
+
+  // 检测移动设备
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+      const isSmallScreen = window.innerWidth < 768;
+      setIsMobile(isMobileDevice || isSmallScreen);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
+  }, []);
+
+  // 创建默认的音频数据（如果没有提供完整数据）
+  const getAudioDataForCard = (): AudioFile => {
+    if (audioData) {
+      return audioData
+    }
+    
+    // 创建基本的音频数据结构
+    return {
+      id: audioId,
+      title: audioTitle,
+      description: audioDescription,
+      url: shareUrl,
+      filename: '',
+      uploadDate: new Date().toISOString()
+    }
+  }
+
   return (
     <div className="relative">
       <button
@@ -180,6 +227,15 @@ export default function ShareButton({
               分享到
             </div>
             
+            {/* 生成分享卡片 */}
+            <button
+              onClick={handleGenerateShareCard}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 active:bg-gray-200 touch-manipulation flex items-center gap-3"
+            >
+              <span className="text-lg">🎨</span>
+              <span>生成分享卡片</span>
+            </button>
+
             {/* 原生分享API（如果支持） */}
             {typeof navigator !== 'undefined' && 'share' in navigator && (
               <button
@@ -229,6 +285,21 @@ export default function ShareButton({
             </div>
           </div>
         </>
+      )}
+
+      {/* 分享卡片模态框 - 根据设备类型选择 */}
+      {isMobile ? (
+        <MobileShareCardModal
+          isOpen={showShareCardModal}
+          audio={getAudioDataForCard()}
+          onClose={() => setShowShareCardModal(false)}
+        />
+      ) : (
+        <ShareCardModal
+          isOpen={showShareCardModal}
+          audio={getAudioDataForCard()}
+          onClose={() => setShowShareCardModal(false)}
+        />
       )}
     </div>
   )

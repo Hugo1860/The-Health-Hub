@@ -1,44 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import db from '@/lib/db';
 import { existsSync } from 'fs';
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
+import { ANTD_ADMIN_PERMISSIONS } from '@/hooks/useAntdAdminAuth';
 
-export async function POST(request: NextRequest) {
-  console.log('=== Simple Admin Upload API Called ===');
-  console.log('Request method:', request.method);
-  console.log('Request URL:', request.url);
-  console.log('Request headers:', Object.fromEntries(request.headers.entries()));
-  
-  try {
-    // 检查管理员权限
-    console.log('Checking authentication...');
-    const session = await getServerSession(authOptions);
-    console.log('Session:', session ? 'Found' : 'Not found');
+// POST - 管理员上传音频文件 - 需要管理员权限
+export const POST = withSecurity(
+  async (request: NextRequest) => {
+    console.log('=== Simple Admin Upload API Called ===');
+    console.log('Request method:', request.method);
+    console.log('Request URL:', request.url);
+    console.log('Admin simple upload');
     
-    if (!session?.user) {
-      console.log('No authentication found');
-      return NextResponse.json({
-        success: false,
-        error: 'No authentication found'
-      }, { status: 401 });
-    }
-    
-    const user = session.user as any;
-    console.log('User found:', { email: user.email, role: user.role });
-    const isAdmin = user.role === 'admin';
-    
-    if (!isAdmin) {
-      console.log('User is not admin, role:', user.role);
-      return NextResponse.json({
-        success: false,
-        error: 'Admin role required'
-      }, { status: 403 });
-    }
-    
-    console.log('Admin access granted for user:', user.email);
+    try {
     
     // 获取表单数据
     const formData = await request.formData();
@@ -72,17 +49,15 @@ export async function POST(request: NextRequest) {
     
     // 验证必填字段
     if (!title || !subject) {
-      return NextResponse.json({
-        success: false,
-        error: 'Title and subject are required'
-      }, { status: 400 });
+      return ApiResponse.badRequest('Title and subject are required', {
+        required: ['title', 'subject']
+      });
     }
     
     if (!audioFile) {
-      return NextResponse.json({
-        success: false,
-        error: 'Audio file is required'
-      }, { status: 400 });
+      return ApiResponse.badRequest('Audio file is required', {
+        field: 'audioFile'
+      });
     }
     
     // 验证文件类型
@@ -103,10 +78,12 @@ export async function POST(request: NextRequest) {
                        (fileExt && allowedExtensions.includes(fileExt));
     
     if (!isValidType) {
-      return NextResponse.json({
-        success: false,
-        error: `Invalid file type. File type: ${audioFile.type}, Extension: ${fileExt}. Only audio files are allowed.`
-      }, { status: 400 });
+      return ApiResponse.badRequest('Invalid file type. Only audio files are allowed.', {
+        fileType: audioFile.type,
+        fileExtension: fileExt,
+        allowedTypes,
+        allowedExtensions
+      });
     }
     
     // 创建上传目录
@@ -165,7 +142,7 @@ export async function POST(request: NextRequest) {
     
     // 检查ID是否已存在
     const existingCheck = db.prepare('SELECT id FROM audios WHERE id = ?');
-    const existing = existingCheck.get(audioId);
+    const existing = await existingCheck.get(audioId);
     if (existing) {
       console.log('ID conflict detected, generating new ID');
       const newId = `${timestamp}_${Math.random().toString(36).substring(2, 11)}`;
@@ -178,17 +155,17 @@ export async function POST(request: NextRequest) {
       const insertStmt = db.prepare(`
         INSERT INTO audios (
           id, title, description, filename, url, coverImage,
-          uploadDate, subject, tags, speaker, recordingDate, size, duration
+          upload_date, subject, tags, speaker, recording_date, size, duration
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       
-      const result = insertStmt.run(
+      const result = await insertStmt.run(
         metadata.id,
         metadata.title,
         metadata.description,
         metadata.filename,
         metadata.url,
-        null, // coverImage
+        null, // "coverImage"
         metadata.uploadDate,
         metadata.subject,
         metadata.tags,
@@ -199,8 +176,7 @@ export async function POST(request: NextRequest) {
       );
       
       console.log('Database insert result:', {
-        changes: result.changes,
-        lastInsertRowid: result.lastInsertRowid
+        changes: result.changes
       });
       
       if (result.changes === 0) {
@@ -210,76 +186,35 @@ export async function POST(request: NextRequest) {
       console.log('Audio saved to database successfully');
     } catch (dbError) {
       console.error('Database save error:', dbError);
-      console.error('Database error details:', {
-        message: dbError instanceof Error ? dbError.message : 'Unknown error',
-        code: (dbError as any)?.code,
-        errno: (dbError as any)?.errno
-      });
-      
-      return NextResponse.json({
-        success: false,
-        error: 'Failed to save to database',
-        details: dbError instanceof Error ? dbError.message : 'Unknown database error',
-        metadata: metadata
-      }, { status: 500 });
+      return DatabaseErrorHandler.handle(dbError as Error, 'Failed to save audio to database');
     }
     
     // 返回成功响应
-    return NextResponse.json({
-      success: true,
-      message: 'Audio uploaded successfully',
-      audio: {
-        ...metadata,
-        tags: tags // 返回解析后的标签数组
-      }
-    });
+    return ApiResponse.created({
+      ...metadata,
+      tags: tags // 返回解析后的标签数组
+    }, 'Audio uploaded successfully');
     
   } catch (error) {
     console.error('Upload API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+    return DatabaseErrorHandler.handle(error as Error, 'Audio upload failed');
   }
-}
+  }, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.UPLOAD_AUDIO, ANTD_ADMIN_PERMISSIONS.EDIT_AUDIO] }
+)
 
-// 添加GET方法用于测试API可访问性
-export async function GET(request: NextRequest) {
-  console.log('=== Simple Admin Upload API GET Called ===');
-  
-  try {
-    // 检查管理员权限
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
-      return NextResponse.json({
-        success: false,
-        error: 'No authentication found'
-      }, { status: 401 });
+// GET - 测试API可访问性 - 需要管理员权限
+export const GET = withSecurity(
+  async (request: NextRequest) => {
+    console.log('=== Simple Admin Upload API GET Called ===');
+    
+    try {
+      return ApiResponse.success({
+        message: 'Upload API is accessible',
+        status: 'ok'
+      });
+      
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error as Error, 'Upload API GET error');
     }
-    
-    const user = session.user as any;
-    const isAdmin = user.role === 'admin';
-    
-    if (!isAdmin) {
-      return NextResponse.json({
-        success: false,
-        error: 'Admin role required'
-      }, { status: 403 });
-    }
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Upload API is accessible',
-      user: { email: user.email, role: user.role }
-    });
-    
-  } catch (error) {
-    console.error('Upload API GET error:', error);
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
-}
+  }, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.UPLOAD_AUDIO] }
+)

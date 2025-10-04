@@ -15,6 +15,7 @@ export function AudioPlayer() {
     playbackRate,
     volume,
     playMode,
+    setCurrentAudio,
     setIsPlaying,
     setCurrentTime,
     setDuration,
@@ -64,23 +65,60 @@ export function AudioPlayer() {
     }
   }, [currentAudio, isPlaying, setIsPlaying, setCurrentTime]);
 
-  // 监听seek事件
+  // 监听播放事件
   useEffect(() => {
+    const handlePlayAudio = (event: CustomEvent) => {
+      if (event.detail) {
+        const audioData = event.detail;
+        setCurrentAudio(audioData);
+        setIsPlaying(true);
+        
+        // 如果有起始位置，设置播放位置
+        if (audioData.startPosition && audioRef.current) {
+          audioRef.current.currentTime = audioData.startPosition;
+          setCurrentTime(audioData.startPosition);
+        }
+      }
+    };
+
     const handleSeek = (event: CustomEvent) => {
       if (audioRef.current && event.detail?.time !== undefined) {
         audioRef.current.currentTime = event.detail.time;
       }
     };
 
-    window.addEventListener('seekAudio', handleSeek as EventListener);
-    return () => {
-      window.removeEventListener('seekAudio', handleSeek as EventListener);
+    const handleSeekToTime = (event: CustomEvent) => {
+      if (audioRef.current && event.detail?.time !== undefined && event.detail?.audioId === currentAudio?.id) {
+        audioRef.current.currentTime = event.detail.time;
+        setCurrentTime(event.detail.time);
+        setIsPlaying(true);
+      }
     };
-  }, []);
+
+    window.addEventListener('playAudio', handlePlayAudio as EventListener);
+    window.addEventListener('seekAudio', handleSeek as EventListener);
+    window.addEventListener('seekToTime', handleSeekToTime as EventListener);
+    
+    return () => {
+      window.removeEventListener('playAudio', handlePlayAudio as EventListener);
+      window.removeEventListener('seekAudio', handleSeek as EventListener);
+      window.removeEventListener('seekToTime', handleSeekToTime as EventListener);
+    };
+  }, [currentAudio, setCurrentAudio, setIsPlaying, setCurrentTime]);
 
   const handleTimeUpdate = () => {
     if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
+      const currentTime = audioRef.current.currentTime;
+      setCurrentTime(currentTime);
+      
+      // 发送时间更新事件给其他组件
+      const event = new CustomEvent('audioTimeUpdate', { 
+        detail: { 
+          audioId: currentAudio?.id,
+          currentTime: currentTime
+        } 
+      });
+      window.dispatchEvent(event);
     }
   };
 

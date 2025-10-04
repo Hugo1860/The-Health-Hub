@@ -194,7 +194,7 @@ body,
 }
 
 .ant-menu-item-selected {
-  background-color: var(--wechat-primary) !important;
+  background-color: #1890ff !important;
   color: #FFFFFF !important;
 }
 

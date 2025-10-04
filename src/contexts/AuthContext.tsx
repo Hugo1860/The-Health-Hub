@@ -65,23 +65,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('🔐 开始登录流程:', { email });
+      
       const result = await signIn('credentials', {
         email,
         password,
         redirect: false
       })
       
+      console.log('📊 NextAuth登录结果:', result);
+      
       if (result?.ok && !result?.error) {
+        console.log('✅ NextAuth登录成功');
+        
         // 登录成功后重新获取用户信息
         setTimeout(() => {
+          console.log('🔄 重新获取用户信息...');
           fetchUserProfile()
-        }, 500) // 增加延迟确保session更新完成
+        }, 1000) // 增加延迟确保session更新完成
+        
         return true
+      } else {
+        console.log('❌ NextAuth登录失败:', result?.error);
+        return false
       }
-      
-      return false
     } catch (error) {
-      console.error('Login error:', error)
+      console.error('❌ 登录错误:', error)
       return false
     }
   }

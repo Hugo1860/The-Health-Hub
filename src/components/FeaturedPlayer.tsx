@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
+import { message } from 'antd';
 import { useAudioStore, AudioFile } from '../store/audioStore';
 
 interface FeaturedPlayerProps {
@@ -9,6 +12,8 @@ interface FeaturedPlayerProps {
 }
 
 export function FeaturedPlayer({ currentAudio, showFullControls = true }: FeaturedPlayerProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
   const { 
     isPlaying, 
     currentTime, 
@@ -24,6 +29,9 @@ export function FeaturedPlayer({ currentAudio, showFullControls = true }: Featur
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
+  const [isCheckingFavorite, setIsCheckingFavorite] = useState(false);
+  const [isFavoriting, setIsFavoriting] = useState(false);
+  const [messageApi, contextHolder] = message.useMessage();
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -98,30 +106,117 @@ export function FeaturedPlayer({ currentAudio, showFullControls = true }: Featur
     setVolume(newVolume);
   };
 
-  const toggleFavorite = () => {
-    setIsFavorited(!isFavorited);
-    // 这里可以添加实际的收藏逻辑
-    console.log(isFavorited ? '取消收藏' : '添加收藏', currentAudio?.title);
+  // 检查收藏状态
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (!session?.user?.id || !currentAudio?.id) {
+        setIsFavorited(false);
+        return;
+      }
+
+      setIsCheckingFavorite(true);
+      try {
+        const response = await fetch(`/api/favorites?audioId=${currentAudio.id}`);
+        if (response.ok) {
+          const data = await response.json();
+          setIsFavorited(data.data?.isFavorited || false);
+        }
+      } catch (error) {
+        console.error('检查收藏状态失败:', error);
+      } finally {
+        setIsCheckingFavorite(false);
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [currentAudio?.id, session?.user?.id]);
+
+  const toggleFavorite = async () => {
+    if (!session?.user?.id) {
+      messageApi.warning({
+        content: '请先登录后再收藏',
+        duration: 2,
+        onClose: () => {
+          // 可选：跳转到登录页
+          const shouldRedirect = window.confirm('需要登录才能收藏音频，是否前往登录？');
+          if (shouldRedirect) {
+            router.push('/auth/signin');
+          }
+        }
+      });
+      return;
+    }
+
+    if (!currentAudio?.id) {
+      return;
+    }
+
+    if (isFavoriting) {
+      return; // 防止重复点击
+    }
+
+    setIsFavoriting(true);
+    try {
+      const action = isFavorited ? 'remove' : 'add';
+      const response = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audioId: currentAudio.id,
+          action,
+        }),
+      });
+
+      if (response.ok) {
+        setIsFavorited(!isFavorited);
+        messageApi.success({
+          content: isFavorited ? '已取消收藏' : '收藏成功',
+          duration: 2,
+        });
+      } else {
+        const data = await response.json();
+        console.error('收藏操作失败:', data);
+        messageApi.error({
+          content: data.error?.message || '操作失败，请重试',
+          duration: 3,
+        });
+      }
+    } catch (error) {
+      console.error('收藏操作异常:', error);
+      messageApi.error({
+        content: '操作失败，请重试',
+        duration: 3,
+      });
+    } finally {
+      setIsFavoriting(false);
+    }
   };
 
   if (!currentAudio) {
     return (
-      <div className="w-full max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-          <div className="text-center">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-white text-sm">🎵</span>
+      <>
+        {contextHolder}
+        <div className="w-full max-w-2xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-white text-sm">🎵</span>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">选择音频开始播放</h3>
+              <p className="text-gray-500 text-sm">点击任意音频即可在此处播放</p>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">选择音频开始播放</h3>
-            <p className="text-gray-500 text-sm">点击任意音频即可在此处播放</p>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
+    <>
+      {contextHolder}
+      <div className="w-full max-w-4xl mx-auto">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 w-full featured-player-container">
         
         {/* 第一行：封面 + 标题描述和分类日期 */}
@@ -152,17 +247,18 @@ export function FeaturedPlayer({ currentAudio, showFullControls = true }: Featur
 
             {/* 标题描述和分类日期 */}
             <div className="flex-1 min-w-0">
-              <button
-                onClick={() => window.location.href = `/audio/${currentAudio.id}`}
-                className="text-left w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-md p-1 -m-1 hover:bg-gray-50 transition-colors block mb-2"
-              >
-                <h3 className="text-lg font-semibold text-gray-900 mb-1 hover:text-blue-600 transition-colors line-clamp-2">
+              <div className="text-left w-full p-1 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">
                   {currentAudio.title}
                 </h3>
                 <p className="text-sm text-gray-600 line-clamp-2">
-                  {currentAudio.description}
+                  {currentAudio.description ? 
+                    (currentAudio.description.length > 35 ? 
+                      currentAudio.description.substring(0, 35) + '...' : 
+                      currentAudio.description) : 
+                    ''}
                 </p>
-              </button>
+              </div>
               
               {/* 分类标签和日期 - 在桌面端同行显示，移动端可换行 */}
               <div className="flex flex-wrap items-center gap-2">
@@ -321,15 +417,16 @@ export function FeaturedPlayer({ currentAudio, showFullControls = true }: Featur
               {/* 收藏按钮 */}
               <button
                 onClick={toggleFavorite}
+                disabled={isFavoriting || isCheckingFavorite || !session?.user?.id}
                 className={`w-12 h-12 rounded-lg flex items-center justify-center transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-opacity-50 ${
                   isFavorited 
                     ? 'bg-red-100 text-red-600 hover:bg-red-200 focus:ring-red-400' 
                     : 'bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 focus:ring-gray-400'
-                }`}
-                title={isFavorited ? '取消收藏' : '添加收藏'}
+                } ${(isFavoriting || isCheckingFavorite || !session?.user?.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={!session?.user?.id ? '请先登录' : (isFavorited ? '取消收藏' : '添加收藏')}
               >
                 <span className="text-xs font-medium">
-                  {isFavorited ? '已藏' : '收藏'}
+                  {isFavoriting ? '...' : (isFavorited ? '已藏' : '收藏')}
                 </span>
               </button>
             </div>
@@ -337,5 +434,6 @@ export function FeaturedPlayer({ currentAudio, showFullControls = true }: Featur
         )}
       </div>
     </div>
+    </>
   );
 }

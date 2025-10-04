@@ -1,4 +1,4 @@
-import { optimizedDb } from './OptimizedDatabase';
+import { db } from './database';
 
 export interface UserBehavior {
   userId: string;

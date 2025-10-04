@@ -14,7 +14,9 @@ export const LoadingSpinner: React.FC<{ size?: 'small' | 'default' | 'large'; ti
       size={size} 
       tip={tip}
       indicator={<LoadingOutlined style={{ fontSize: size === 'large' ? 32 : size === 'small' ? 16 : 24 }} spin />}
-    />
+    >
+      <div style={{ minHeight: 50 }} />
+    </Spin>
   </div>
 );
 

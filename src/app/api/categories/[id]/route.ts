@@ -1,37 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, readFile } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { z } from 'zod';
+import CategoryService from '@/lib/categoryService';
+import { CategoryOperationResult } from '@/types/category';
 
-const CATEGORIES_FILE = join(process.cwd(), 'data', 'categories.json');
+// 更新分类请求验证 schema
+const updateCategorySchema = z.object({
+  name: z.string().min(1, '分类名称不能为空').max(100, '分类名称不能超过100个字符').optional(),
+  description: z.string().max(500, '分类描述不能超过500个字符').optional(),
+  parentId: z.string().nullable().optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, '颜色格式不正确').optional(),
+  icon: z.string().max(10, '图标不能超过10个字符').optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  isActive: z.boolean().optional()
+});
 
-interface Category {
-  id: string;
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// 读取分类数据
-async function getCategories(): Promise<Category[]> {
-  try {
-    if (!existsSync(CATEGORIES_FILE)) {
-      return [];
+// 辅助函数：处理错误响应
+function handleError(error: unknown, defaultMessage: string) {
+  console.error(defaultMessage, error);
+  
+  const errorMessage = error instanceof Error ? error.message : defaultMessage;
+  
+  return NextResponse.json({
+    success: false,
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: errorMessage
     }
-    const data = await readFile(CATEGORIES_FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('读取分类数据失败:', error);
-    return [];
-  }
+  }, { status: 500 });
 }
 
-// 保存分类数据
-async function saveCategories(categories: Category[]) {
-  await writeFile(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
+// GET - 获取单个分类
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    const category = await CategoryService.getCategoryById(id);
+
+    if (!category) {
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: '分类不存在'
+        }
+      }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    return handleError(error, '获取分类详情失败');
+  }
 }
 
 // PUT - 更新分类
@@ -39,56 +63,39 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
   try {
+    const { id } = await params;
     const body = await request.json();
-    const { name, description, color, icon } = body;
 
-    if (!name) {
-      return NextResponse.json(
-        { error: '分类名称不能为空' },
-        { status: 400 }
-      );
+    console.log('更新分类API - ID:', id, '请求数据:', body);
+    
+    // 验证请求数据
+    const validation = updateCategorySchema.safeParse(body);
+    if (!validation.success) {
+      console.error('API验证失败:', validation.error);
+      return NextResponse.json({
+        success: false,
+        error: {
+          code: 'INVALID_DATA',
+          message: '请求数据无效',
+          details: validation.error.flatten()
+        }
+      }, { status: 400 });
     }
 
-    const categories = await getCategories();
-    const categoryIndex = categories.findIndex(cat => cat.id === id);
-
-    if (categoryIndex === -1) {
-      return NextResponse.json(
-        { error: '分类不存在' },
-        { status: 404 }
-      );
-    }
-
-    // 检查分类名称是否与其他分类重复
-    const existingCategory = categories.find(cat => cat.name === name && cat.id !== id);
-    if (existingCategory) {
-      return NextResponse.json(
-        { error: '分类名称已存在' },
-        { status: 400 }
-      );
-    }
+    const updateData = validation.data;
 
     // 更新分类
-    categories[categoryIndex] = {
-      ...categories[categoryIndex],
-      name,
-      description: description || '',
-      color: color || categories[categoryIndex].color,
-      icon: icon || categories[categoryIndex].icon,
-      updatedAt: new Date().toISOString()
-    };
+    const result = await CategoryService.updateCategory(id, updateData);
 
-    await saveCategories(categories);
-
-    return NextResponse.json(categories[categoryIndex]);
+    if (result.success) {
+      return NextResponse.json(result);
+    } else {
+      const statusCode = result.error?.code === 'NOT_FOUND' ? 404 : 400;
+      return NextResponse.json(result, { status: statusCode });
+    }
   } catch (error) {
-    console.error('更新分类失败:', error);
-    return NextResponse.json(
-      { error: '更新分类失败' },
-      { status: 500 }
-    );
+    return handleError(error, '更新分类失败');
   }
 }
 
@@ -99,34 +106,20 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const categories = await getCategories();
-    const categoryIndex = categories.findIndex(cat => cat.id === id);
+    const searchParams = request.nextUrl.searchParams;
+    const force = searchParams.get('force') === 'true';
+    const cascade = searchParams.get('cascade') === 'true';
 
-    if (categoryIndex === -1) {
-      return NextResponse.json(
-        { error: '分类不存在' },
-        { status: 404 }
-      );
+    // 删除分类
+    const result = await CategoryService.deleteCategory(id, { force, cascade });
+
+    if (result.success) {
+      return NextResponse.json(result);
+    } else {
+      const statusCode = result.error?.code === 'NOT_FOUND' ? 404 : 400;
+      return NextResponse.json(result, { status: statusCode });
     }
-
-    // 不允许删除默认分类
-    const defaultCategories = ['cardiology', 'neurology', 'internal-medicine', 'surgery', 'pediatrics', 'other'];
-    if (defaultCategories.includes(id)) {
-      return NextResponse.json(
-        { error: '不能删除默认分类' },
-        { status: 400 }
-      );
-    }
-
-    categories.splice(categoryIndex, 1);
-    await saveCategories(categories);
-
-    return NextResponse.json({ message: '分类删除成功' });
   } catch (error) {
-    console.error('删除分类失败:', error);
-    return NextResponse.json(
-      { error: '删除分类失败' },
-      { status: 500 }
-    );
+    return handleError(error, '删除分类失败');
   }
 }

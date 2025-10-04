@@ -163,17 +163,24 @@ export const useAntdAdminAuth = (redirectOnFail: boolean = false): AntdAdminAuth
 
       // 只在明确要求重定向时才执行重定向逻辑
       if (redirectOnFail && !isAdmin) {
-        console.log('Redirecting due to admin auth failure:', { 
+        console.log('Admin auth check:', { 
           status, 
           isAdmin, 
-          userRole: user?.role 
+          userRole: user?.role,
+          userStatus: user?.status
         });
         
-        if (status === 'unauthenticated') {
-          router.push('/auth/signin?callbackUrl=' + encodeURIComponent(window.location.pathname));
-        } else if (user && !['admin', 'moderator', 'editor'].includes(user.role)) {
-          router.push('/');
-        }
+        // 添加延迟以避免立即重定向导致的问题
+        const redirectTimer = setTimeout(() => {
+          if (status === 'unauthenticated') {
+            const callbackUrl = encodeURIComponent(window.location.pathname + window.location.search);
+            router.push(`/auth/signin?callbackUrl=${callbackUrl}`);
+          } else if (user && !['admin', 'moderator', 'editor'].includes(user.role)) {
+            router.push('/?error=insufficient_permissions');
+          }
+        }, 100);
+
+        return () => clearTimeout(redirectTimer);
       }
     } catch (error) {
       console.error('useAntdAdminAuth useEffect error:', error);

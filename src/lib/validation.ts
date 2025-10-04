@@ -1,17 +1,24 @@
 import DOMPurify from 'isomorphic-dompurify';
 import { z } from 'zod';
 
-// 输入验证模式
+// 输入验证模式 - 文件上传验证
 export const audioUploadSchema = z.object({
+  name: z.string().min(1, '文件名不能为空'),
+  size: z.number().max(100 * 1024 * 1024, '文件大小不能超过100MB'),
+  type: z.string().refine(
+    (type) => ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/m4a', 'audio/x-m4a', 'audio/mp4', 'audio/aac'].includes(type),
+    '不支持的文件类型。请上传MP3、WAV或M4A格式的音频文件。'
+  )
+});
+
+// 表单数据验证模式
+export const audioFormSchema = z.object({
   title: z.string()
     .min(1, '标题不能为空')
     .max(200, '标题不能超过200个字符')
     .regex(/^[^<>\"'&]*$/, '标题包含非法字符'),
   description: z.string()
     .max(2000, '描述不能超过2000个字符'),
-  subject: z.string()
-    .min(1, '主题不能为空')
-    .max(100, '主题不能超过100个字符'),
   speaker: z.string()
     .max(100, '演讲者名称不能超过100个字符'),
   tags: z.array(z.string().max(50, '标签不能超过50个字符')).optional(),
@@ -26,9 +33,8 @@ export const userRegistrationSchema = z.object({
     .email('请输入有效的邮箱地址')
     .max(100, '邮箱地址不能超过100个字符'),
   password: z.string()
-    .min(8, '密码至少8个字符')
-    .max(128, '密码不能超过128个字符')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, '密码必须包含大小写字母和数字'),
+    .min(6, '密码至少6个字符')
+    .max(128, '密码不能超过128个字符'),
 });
 
 export const commentSchema = z.object({
@@ -51,7 +57,7 @@ export const questionSchema = z.object({
 
 // 文件上传验证
 export const validateFileUpload = (file: File) => {
-  const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/m4a'];
+  const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/x-wav', 'audio/mp3', 'audio/m4a', 'audio/x-m4a', 'audio/mp4', 'audio/aac'];
   const maxSize = 100 * 1024 * 1024; // 100MB
 
   if (!allowedTypes.includes(file.type)) {
@@ -62,10 +68,16 @@ export const validateFileUpload = (file: File) => {
     throw new Error('文件大小不能超过100MB。');
   }
 
-  // 检查文件名
+  // 检查文件名 - 放宽限制，允许更多常见字符
   const filename = file.name;
-  if (!/^[a-zA-Z0-9._\-\u4e00-\u9fa5\s]+$/.test(filename)) {
-    throw new Error('文件名包含非法字符。');
+  // 只禁止明显危险的字符，允许大部分常见字符
+  if (/[<>:"|?*\x00-\x1f]/.test(filename)) {
+    throw new Error('文件名包含非法字符。请避免使用 < > : " | ? * 等特殊字符。');
+  }
+  
+  // 检查文件名长度
+  if (filename.length > 255) {
+    throw new Error('文件名过长，请使用较短的文件名。');
   }
 
   return true;

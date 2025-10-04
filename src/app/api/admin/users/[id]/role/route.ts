@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { readFile, writeFile } from 'fs/promises'
 import { join } from 'path'
+import logger from '@/lib/logger'
 
 const USERS_FILE = join(process.cwd(), 'data', 'users.json')
 
@@ -100,7 +101,7 @@ export async function PUT(
     })
 
   } catch (error) {
-    console.error('Update user role error:', error)
+    logger.error('Update user role error:', error)
     return NextResponse.json(
       { error: '更新用户角色失败' },
       { status: 500 }

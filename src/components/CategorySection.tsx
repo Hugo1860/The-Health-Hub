@@ -19,12 +19,13 @@ interface CategorySectionProps {
 }
 
 export function CategorySection({ category, audios, maxItems = 6, layout = 'grid' }: CategorySectionProps) {
-  const { setCurrentAudio } = useAudioStore();
+  const { setCurrentAudio, setIsPlaying } = useAudioStore();
 
   const displayAudios = audios.slice(0, maxItems);
 
   const handleAudioSelect = (audio: AudioFile) => {
     setCurrentAudio(audio);
+    setIsPlaying(true);
   };
 
   if (displayAudios.length === 0) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { optimizedDb } from '@/lib/OptimizedDatabase';
+import { db } from '@/lib/database';
 import { audioQueryOptimizer } from '@/lib/QueryOptimizationMiddleware';
 import { z } from 'zod';
 
@@ -9,7 +9,7 @@ const audioQuerySchema = z.object({
   search: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
-  sortBy: z.enum(['uploadDate', 'title', 'duration', 'averageRating']).default('uploadDate'),
+  sortBy: z.enum(['"uploadDate"', 'title', 'duration', 'averageRating']).default('"uploadDate"'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
   useCache: z.coerce.boolean().default(true),
 });

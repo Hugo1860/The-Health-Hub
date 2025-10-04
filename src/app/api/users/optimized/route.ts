@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { optimizedDb } from '@/lib/OptimizedDatabase';
+import { db } from '@/lib/database';
 import { userQueryOptimizer } from '@/lib/QueryOptimizationMiddleware';
 import { userQueryCache } from '@/lib/QueryCache';
 import { z } from 'zod';
+import { nowMinusDays } from '@/lib/sqlUtil';
 
 // Schema for validating query parameters
 const userQuerySchema = z.object({
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
         );
 
         const recentUsers = await optimizedDb.query<any>(
-          'SELECT COUNT(*) as count FROM users WHERE createdAt > datetime("now", "-7 days")',
+          `SELECT COUNT(*) as count FROM users WHERE createdAt > ${nowMinusDays(7)}`,
           [],
           { useCache: false }
         );

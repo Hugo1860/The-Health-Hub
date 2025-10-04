@@ -7,6 +7,7 @@ import { withSecurityAndValidation } from '@/lib/secureApiWrapper'
 import { sanitizeText } from '@/lib/validation'
 import { z } from 'zod'
 import { existsSync } from 'fs'
+import logger from '@/lib/logger'
 
 const DATA_DIR = join(process.cwd(), 'data')
 const USERS_FILE = join(DATA_DIR, 'users.json')
@@ -151,8 +152,8 @@ export const GET = withSecurityAndValidation(
         hasMore: users.length > limit
       })
 
-    } catch (error) {
-      console.error('Search users error:', error)
+  } catch (error) {
+      logger.error('Search users error:', error)
       return NextResponse.json(
         { error: { code: 'SEARCH_ERROR', message: '搜索用户失败' } },
         { status: 500 }

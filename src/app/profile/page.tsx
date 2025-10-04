@@ -62,6 +62,7 @@ interface AudioItem {
   subject: string;
   uploadDate: string;
   duration?: number;
+  lastPlayedAt?: string;
 }
 
 export default function ProfilePage() {
@@ -90,8 +91,47 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      // 模拟获取用户资料
-      const mockProfile: UserProfile = {
+      // 获取用户统计数据
+      const response = await fetch('/api/user/stats');
+      const data = await response.json();
+      
+      let stats = {
+        totalListened: 0,
+        totalFavorites: 0,
+        totalPlaylists: 0,
+        listeningTime: 0
+      };
+      let joinDate = '2024-01-01';
+
+      if (data.success) {
+        stats = data.data.stats;
+        joinDate = data.data.profile.joinDate;
+      } else {
+        console.error('获取用户统计失败:', data.error?.message);
+      }
+
+      const userProfile: UserProfile = {
+        id: session?.user?.id || '1',
+        username: session?.user?.name || '用户',
+        email: session?.user?.email || 'user@example.com',
+        role: (session?.user as any)?.role || 'user',
+        bio: '热爱医学知识，持续学习中...',
+        joinDate,
+        stats
+      };
+      
+      setProfile(userProfile);
+      form.setFieldsValue({
+        username: userProfile.username,
+        email: userProfile.email,
+        bio: userProfile.bio
+      });
+    } catch (error) {
+      console.error('获取用户资料失败:', error);
+      message.error('获取用户资料失败');
+      
+      // 网络错误时使用默认数据
+      const defaultProfile: UserProfile = {
         id: session?.user?.id || '1',
         username: session?.user?.name || '用户',
         email: session?.user?.email || 'user@example.com',
@@ -99,49 +139,70 @@ export default function ProfilePage() {
         bio: '热爱医学知识，持续学习中...',
         joinDate: '2024-01-01',
         stats: {
-          totalListened: 45,
-          totalFavorites: 12,
-          totalPlaylists: 3,
-          listeningTime: 1280 // 分钟
+          totalListened: 0,
+          totalFavorites: 0,
+          totalPlaylists: 0,
+          listeningTime: 0
         }
       };
       
-      setProfile(mockProfile);
+      setProfile(defaultProfile);
       form.setFieldsValue({
-        username: mockProfile.username,
-        email: mockProfile.email,
-        bio: mockProfile.bio
+        username: defaultProfile.username,
+        email: defaultProfile.email,
+        bio: defaultProfile.bio
       });
-    } catch (error) {
-      message.error('获取用户资料失败');
     }
   };
 
   const fetchFavorites = async () => {
     try {
-      // 模拟获取收藏列表
-      const mockFavorites: AudioItem[] = [
-        { id: '1', title: '心血管疾病诊断要点', subject: '心血管', uploadDate: '2024-01-10' },
-        { id: '2', title: '神经系统检查方法', subject: '神经科', uploadDate: '2024-01-08' },
-        { id: '3', title: '内分泌疾病治疗', subject: '内科', uploadDate: '2024-01-05' }
-      ];
-      setFavorites(mockFavorites);
+      const response = await fetch('/api/user/favorites?limit=5');
+      const data = await response.json();
+      
+      if (data.success) {
+        setFavorites(data.data.favorites.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          subject: item.subject,
+          uploadDate: item.uploadDate,
+          duration: item.duration
+        })));
+      } else {
+        console.error('获取收藏列表失败:', data.error?.message);
+        // 如果API失败，使用空数组
+        setFavorites([]);
+      }
     } catch (error) {
       console.error('获取收藏列表失败:', error);
+      // 网络错误时使用空数组
+      setFavorites([]);
     }
   };
 
   const fetchRecentlyPlayed = async () => {
     try {
-      // 模拟获取最近播放
-      const mockRecent: AudioItem[] = [
-        { id: '4', title: '外科手术基础技能', subject: '外科', uploadDate: '2024-01-12' },
-        { id: '5', title: '儿科常见疾病', subject: '儿科', uploadDate: '2024-01-11' },
-        { id: '6', title: '急诊医学处理原则', subject: '急诊科', uploadDate: '2024-01-09' }
-      ];
-      setRecentlyPlayed(mockRecent);
+      const response = await fetch('/api/user/history?limit=5');
+      const data = await response.json();
+      
+      if (data.success) {
+        setRecentlyPlayed(data.data.history.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          subject: item.subject,
+          uploadDate: item.uploadDate,
+          duration: item.duration,
+          lastPlayedAt: item.lastPlayedAt
+        })));
+      } else {
+        console.error('获取播放历史失败:', data.error?.message);
+        // 如果API失败，使用空数组
+        setRecentlyPlayed([]);
+      }
     } catch (error) {
       console.error('获取播放历史失败:', error);
+      // 网络错误时使用空数组
+      setRecentlyPlayed([]);
     }
   };
 
@@ -256,7 +317,10 @@ export default function ProfilePage() {
                           <div className="flex items-center gap-2">
                             <Tag color="blue">{item.subject}</Tag>
                             <Text type="secondary" style={{ fontSize: 12 }}>
-                              {new Date(item.uploadDate).toLocaleDateString('zh-CN')}
+                              {item.lastPlayedAt 
+                                ? `播放于 ${new Date(item.lastPlayedAt).toLocaleDateString('zh-CN')}`
+                                : new Date(item.uploadDate).toLocaleDateString('zh-CN')
+                              }
                             </Text>
                           </div>
                         }
@@ -383,7 +447,14 @@ export default function ProfilePage() {
 
   return (
     <AntdHomeLayout>
-      <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+      <div 
+        className="profile-page-container player-safe-container" 
+        style={{ 
+          padding: '24px', 
+          maxWidth: 1200, 
+          margin: '0 auto'
+        }}
+      >
         {/* 面包屑导航 */}
         <Breadcrumb style={{ marginBottom: 24 }}>
           <Breadcrumb.Item>
@@ -439,7 +510,12 @@ export default function ProfilePage() {
         </Card>
 
         {/* 标签页内容 */}
-        <Card style={{ borderRadius: 12 }}>
+        <Card 
+          className="player-safe-bottom"
+          style={{ 
+            borderRadius: 12
+          }}
+        >
           <Tabs
             activeKey={activeTab}
             onChange={setActiveTab}

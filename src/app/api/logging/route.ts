@@ -1,17 +1,16 @@
 // 错误日志收集 API
 
 import { NextRequest, NextResponse } from 'next/server';
+import db from '@/lib/db';
+import { DatabaseErrorHandler } from '@/lib/api-response';
 
 interface LogEntry {
+  id?: string;
   type: 'error' | 'metric' | 'action';
   data: any;
   sessionId: string;
   timestamp: string;
 }
-
-// 简单的内存存储（生产环境应该使用数据库）
-const logs: LogEntry[] = [];
-const MAX_LOGS = 10000;
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -32,12 +31,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       timestamp: body.timestamp || new Date().toISOString()
     };
 
-    // 添加到日志存储
-    logs.push(logEntry);
-
-    // 保持日志数量在限制内
-    if (logs.length > MAX_LOGS) {
-      logs.splice(0, logs.length - MAX_LOGS);
+    // 保存到PostgreSQL数据库
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO logs (id, type, data, session_id, timestamp, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+      
+      const logId = `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await stmt.run(
+        logId,
+        logEntry.type,
+        JSON.stringify(logEntry.data),
+        logEntry.sessionId,
+        logEntry.timestamp,
+        new Date().toISOString()
+      );
+      
+      logEntry.id = logId;
+    } catch (dbError) {
+      console.error('Failed to save log to database:', dbError);
+      // 继续执行，不因数据库错误影响日志记录
     }
 
     // 在控制台输出（开发环境）
@@ -51,7 +65,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       // 这里可以集成邮件通知、Slack 通知等
     }
 
-    return NextResponse.json({ success: true, id: `log_${Date.now()}` });
+    return NextResponse.json({ success: true, id: logEntry.id || `log_${Date.now()}` });
   } catch (error) {
     console.error('Logging API error:', error);
     return NextResponse.json(
@@ -68,35 +82,66 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const type = url.searchParams.get('type') as 'error' | 'metric' | 'action' | null;
     const limit = parseInt(url.searchParams.get('limit') || '100');
 
-    let filteredLogs = logs;
+    // 构建PostgreSQL查询
+    let query = 'SELECT id, type, data, session_id, timestamp, created_at FROM logs';
+    const params: any[] = [];
+    const conditions: string[] = [];
 
     // 按会话 ID 过滤
     if (sessionId) {
-      filteredLogs = filteredLogs.filter(log => log.sessionId === sessionId);
+      conditions.push('session_id = ?');
+      params.push(sessionId);
     }
 
     // 按类型过滤
     if (type) {
-      filteredLogs = filteredLogs.filter(log => log.type === type);
+      conditions.push('type = ?');
+      params.push(type);
     }
 
-    // 限制数量并按时间倒序
-    const result = filteredLogs
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, limit);
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+
+    const stmt = db.prepare(query);
+    const logs = await stmt.all(...params);
+
+    // 解析JSON数据
+    const result = logs.map((log: any) => ({
+      id: log.id,
+      type: log.type,
+      data: typeof log.data === 'string' ? JSON.parse(log.data) : log.data,
+      sessionId: log.session_id,
+      timestamp: log.timestamp,
+      createdAt: log.created_at
+    }));
+
+    // 获取总数
+    let countQuery = 'SELECT COUNT(*) as total FROM logs';
+    const countParams: any[] = [];
+    
+    if (conditions.length > 0) {
+      countQuery += ' WHERE ' + conditions.join(' AND ');
+      // 移除limit参数
+      countParams.push(...params.slice(0, -1));
+    }
+
+    const countStmt = db.prepare(countQuery);
+    const countResult = await countStmt.get(...countParams);
+    const total = countResult?.total || 0;
 
     return NextResponse.json({
       success: true,
       data: result,
-      total: filteredLogs.length,
+      total: total,
       returned: result.length
     });
   } catch (error) {
     console.error('Logging API GET error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return DatabaseErrorHandler.handle(error as Error, 'Get logs error');
   }
 }
 
@@ -108,26 +153,35 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     
     if (olderThan) {
       const cutoffDate = new Date(olderThan);
-      const initialLength = logs.length;
+      
+      // 获取删除前的数量
+      const countStmt = db.prepare('SELECT COUNT(*) as total FROM logs WHERE created_at < ?');
+      const countResult = await countStmt.get(cutoffDate.toISOString());
+      const deletedCount = countResult?.total || 0;
       
       // 删除指定日期之前的日志
-      for (let i = logs.length - 1; i >= 0; i--) {
-        if (new Date(logs[i].timestamp) < cutoffDate) {
-          logs.splice(i, 1);
-        }
-      }
+      const deleteStmt = db.prepare('DELETE FROM logs WHERE created_at < ?');
+      await deleteStmt.run(cutoffDate.toISOString());
       
-      const deletedCount = initialLength - logs.length;
+      // 获取剩余数量
+      const remainingStmt = db.prepare('SELECT COUNT(*) as total FROM logs');
+      const remainingResult = await remainingStmt.get();
+      const remaining = remainingResult?.total || 0;
       
       return NextResponse.json({
         success: true,
         message: `Deleted ${deletedCount} log entries`,
-        remaining: logs.length
+        remaining: remaining
       });
     } else {
+      // 获取删除前的数量
+      const countStmt = db.prepare('SELECT COUNT(*) as total FROM logs');
+      const countResult = await countStmt.get();
+      const deletedCount = countResult?.total || 0;
+      
       // 清空所有日志
-      const deletedCount = logs.length;
-      logs.length = 0;
+      const deleteStmt = db.prepare('DELETE FROM logs');
+      await deleteStmt.run();
       
       return NextResponse.json({
         success: true,
@@ -136,9 +190,6 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
     }
   } catch (error) {
     console.error('Logging API DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return DatabaseErrorHandler.handle(error as Error, 'Delete logs error');
   }
 }

@@ -126,7 +126,10 @@ export function RecentlyPlayed({ recentAudios, maxItems = 5, onAudioSelect }: Re
             <div className="w-1 h-8 bg-blue-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
 
             {/* 音频封面 */}
-            <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-blue-500 rounded flex items-center justify-center flex-shrink-0">
+            <div 
+              className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg, #34c9ff 0%, #6366f1 100%)' }}
+            >
               <span className="text-white text-xs">🎙️</span>
             </div>
 

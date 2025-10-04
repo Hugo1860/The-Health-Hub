@@ -1,184 +1,132 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { readFile, writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { withSecurity, withSecurityAndValidation } from '@/lib/secureApiWrapper'
-import { commentSchema, sanitizeText, sanitizeHtml, isValidUUID } from '@/lib/validation'
-import { z } from 'zod'
+import { NextRequest, NextResponse } from 'next/server';
+import { withSecurity } from '@/lib/secureApiWrapper';
+import { z } from 'zod';
+import { sqlClient } from '@/lib/sqlClient';
+import { sanitizeText } from '@/lib/validation';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { v4 as uuidv4 } from 'uuid';
 
-const DATA_DIR = join(process.cwd(), 'data')
-const COMMENTS_FILE = join(DATA_DIR, 'comments.json')
-
-interface Comment {
-  id: string
-  audioId: string
-  userId: string
-  username: string
-  content: string
-  createdAt: string
-  updatedAt?: string
-  parentId?: string // 用于回复功能
-}
-
-// 确保数据结构存在
-async function ensureDataStructure() {
+// GET: 获取评论列表（方言无关）
+export const GET = withSecurity(async (request: NextRequest) => {
   try {
-    await mkdir(DATA_DIR, { recursive: true })
+    const { searchParams } = request.nextUrl;
+    const audioId = sanitizeText(searchParams.get('audioId') || '');
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
+    const includePending = searchParams.get('includePending') === 'true';
+    
+    if (!audioId) {
+      return NextResponse.json({ success: false, error: { code: 'INVALID_INPUT', message: '缺少音频ID参数' } }, { status: 400 });
+    }
+
+    // 构建查询条件
+    const statusCondition = includePending
+      ? "c.status IN ('approved', 'pending')"
+      : "c.status = 'approved'";
+
+    const query = `
+      SELECT 
+        c.id,
+        c.content,
+        c.created_at,
+        c.user_id,
+        c.status,
+        c.moderated_at,
+        c.moderated_by,
+        c.moderation_reason,
+        u.username,
+        u.email
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.audio_id = ? AND ${statusCondition}
+      ORDER BY c.created_at DESC
+      LIMIT ?
+    `;
+
+    const rows = await sqlClient.query<any>(query, [audioId, limit]);
+
+    const comments = rows.map((row: any) => ({
+      id: row.id,
+      content: row.content,
+      createdAt: row.created_at,
+      userId: row.user_id,
+      username: row.username || '匿名用户',
+      email: row.email,
+      status: row.status,
+      moderatedAt: row.moderated_at,
+      moderatedBy: row.moderated_by,
+      moderationReason: row.moderation_reason
+    }));
+
+    return NextResponse.json({ success: true, data: { comments } });
+
   } catch (error) {
-    // 目录已存在
+    console.error('获取评论失败:', error);
+    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: '获取评论失败' } }, { status: 500 });
   }
-  
-  try {
-    await readFile(COMMENTS_FILE, 'utf-8')
-  } catch (error) {
-    // 如果文件不存在，创建空数组
-    await writeFile(COMMENTS_FILE, JSON.stringify([], null, 2))
-  }
-}
+}, { requireAuth: false, enableRateLimit: true, rateLimitMax: 120, rateLimitWindow: 60000, allowedMethods: ['GET'] });
 
-// 获取所有评论
-async function getComments(): Promise<Comment[]> {
-  await ensureDataStructure()
-  const data = await readFile(COMMENTS_FILE, 'utf-8')
-  return JSON.parse(data)
-}
-
-// 保存评论
-async function saveComments(comments: Comment[]): Promise<void> {
-  await writeFile(COMMENTS_FILE, JSON.stringify(comments, null, 2))
-}
-
-// 生成评论ID
-function generateCommentId(): string {
-  return 'comment-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11)
-}
-
-// GET请求验证模式
-const getCommentsSchema = z.object({
+// POST: 创建新评论（方言无关）
+const createCommentSchema = z.object({
   audioId: z.string().uuid('无效的音频ID'),
-})
+  content: z.string().min(1, '评论内容不能为空').max(1000, '评论内容不能超过1000个字符')
+});
 
-// 获取评论列表
-export const GET = withSecurityAndValidation(
-  async (request: NextRequest, validatedData: { audioId: string }) => {
-    try {
-      const { audioId } = validatedData
-      
-      const comments = await getComments()
-      
-      // 过滤指定音频的评论并净化内容
-      const audioComments = comments
-        .filter(comment => comment.audioId === audioId)
-        .map(comment => ({
-          ...comment,
-          content: sanitizeHtml(comment.content || ''),
-          username: sanitizeText(comment.username || ''),
-        }))
-      
-      // 按创建时间排序，最新的在前
-      audioComments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      
-      return NextResponse.json({ comments: audioComments })
-      
-    } catch (error) {
-      console.error('Get comments error:', error)
-      return NextResponse.json(
-        { error: { code: 'FETCH_ERROR', message: '获取评论失败' } },
-        { status: 500 }
-      )
+export const POST = withSecurity(async (request: NextRequest) => {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ success: false, error: { code: 'UNAUTHORIZED', message: '请先登录' } }, { status: 401 });
     }
-  },
-  getCommentsSchema,
-  {
-    requireAuth: false,
-    enableRateLimit: true,
-    rateLimitMax: 100,
-    rateLimitWindow: 60000,
-    allowedMethods: ['GET'],
-  }
-)
 
-// 创建评论
-export const POST = withSecurityAndValidation(
-  async (request: NextRequest, validatedData: { audioId: string; content: string; parentId?: string }) => {
-    try {
-      const session = await getServerSession()
-      
-      if (!session?.user?.id) {
-        return NextResponse.json(
-          { error: { code: 'UNAUTHORIZED', message: '未授权访问' } },
-          { status: 401 }
-        )
-      }
-      
-      const { audioId, content, parentId } = validatedData
-      
-      // 验证父评论ID（如果提供）
-      if (parentId && !isValidUUID(parentId)) {
-        return NextResponse.json({
-          error: { code: 'INVALID_PARENT_ID', message: '无效的父评论ID' }
-        }, { status: 400 })
-      }
-      
-      const comments = await getComments()
-      
-      // 如果是回复，检查父评论是否存在
-      if (parentId) {
-        const parentComment = comments.find(c => c.id === parentId)
-        if (!parentComment) {
-          return NextResponse.json(
-            { error: { code: 'PARENT_NOT_FOUND', message: '父评论不存在' } },
-            { status: 404 }
-          )
-        }
-        
-        // 确保父评论属于同一个音频
-        if (parentComment.audioId !== audioId) {
-          return NextResponse.json(
-            { error: { code: 'INVALID_REPLY', message: '无效的回复' } },
-            { status: 400 }
-          )
-        }
-      }
-      
-      // 净化内容
-      const sanitizedContent = sanitizeHtml(content)
-      const sanitizedUsername = sanitizeText(session.user.name || 'Anonymous')
-      
-      // 创建新评论
-      const newComment: Comment = {
-        id: generateCommentId(),
-        audioId,
-        userId: session.user.id,
-        username: sanitizedUsername,
-        content: sanitizedContent,
+    const body = await request.json();
+    const parsed = createCommentSchema.safeParse({
+      audioId: sanitizeText(body?.audioId || ''),
+      content: sanitizeText(body?.content || '')
+    });
+    if (!parsed.success) {
+      return NextResponse.json({ success: false, error: { code: 'VALIDATION_ERROR', message: '参数无效', details: parsed.error.flatten() } }, { status: 400 });
+    }
+
+    const { audioId, content } = parsed.data;
+
+    // 检查音频是否存在
+    const audio = await sqlClient.query<any>('SELECT id FROM audios WHERE id = ?', [audioId]);
+    if (audio.length === 0) {
+      return NextResponse.json({ success: false, error: { code: 'NOT_FOUND', message: '音频不存在' } }, { status: 404 });
+    }
+
+    // 预生成ID，避免使用 RETURNING
+    const id = uuidv4();
+    const insertSql = `
+      INSERT INTO comments (id, audio_id, user_id, content, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `;
+    if (sqlClient.execute) {
+      await sqlClient.execute(insertSql, [id, audioId, session.user.id, content]);
+    } else {
+      await sqlClient.query(insertSql, [id, audioId, session.user.id, content]);
+    }
+
+    // 获取用户信息
+    const user = await sqlClient.query<any>('SELECT username, email FROM users WHERE id = ?', [session.user.id]);
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id,
+        content,
         createdAt: new Date().toISOString(),
-        parentId: parentId || undefined
-      }
-      
-      comments.push(newComment)
-      await saveComments(comments)
-      
-      return NextResponse.json({
-        message: '评论发布成功',
-        comment: newComment
-      }, { status: 201 })
-      
-    } catch (error) {
-      console.error('Create comment error:', error)
-      return NextResponse.json(
-        { error: { code: 'CREATE_ERROR', message: '发布评论失败' } },
-        { status: 500 }
-      )
-    }
-  },
-  commentSchema,
-  {
-    requireAuth: true,
-    enableRateLimit: true,
-    rateLimitMax: 20,
-    rateLimitWindow: 60000,
-    requireCSRF: true,
-    allowedMethods: ['POST'],
+        userId: session.user.id,
+        username: user?.[0]?.username || '匿名用户',
+        email: user?.[0]?.email,
+        status: 'pending'
+      },
+      message: '评论已提交，等待管理员审核后显示'
+    }, { status: 201 });
+
+  } catch (error) {
+    console.error('创建评论失败:', error);
+    return NextResponse.json({ success: false, error: { code: 'INTERNAL_ERROR', message: '创建评论失败' } }, { status: 500 });
   }
-)
+}, { requireAuth: true, enableRateLimit: true, rateLimitMax: 30, rateLimitWindow: 60000, allowedMethods: ['POST'] });

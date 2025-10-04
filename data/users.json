@@ -28,7 +28,8 @@
       "autoplay": false,
       "defaultPlaybackRate": 1,
       "defaultVolume": 0.8
-    }
+    },
+    "lastLogin": "2025-09-29T04:01:29.229Z"
   },
   {
     "id": "user-1753408717107-5x6uioj68",
@@ -44,7 +45,7 @@
       "defaultPlaybackRate": 1,
       "defaultVolume": 0.5
     },
-    "lastLogin": "2025-08-10T11:23:59.261Z"
+    "lastLogin": "2025-09-24T03:40:28.755Z"
   },
   {
     "id": "user-1754614898781-9nib3ri5e",
@@ -77,5 +78,53 @@
       "defaultVolume": 0.8
     },
     "lastLogin": "2025-08-10T09:18:07.246Z"
+  },
+  {
+    "id": "user-1755265957343-kocegxxzh",
+    "username": "huyinghao",
+    "email": "hu@qq.com",
+    "password": "$2b$12$Gum9N10lZ0/OU/pJwJrCAumYKuj1AvdQ2GA6iRJOsQn/bcWJ0tRmG",
+    "role": "user",
+    "status": "active",
+    "createdAt": "2025-08-15T13:52:37.343Z",
+    "preferences": {
+      "theme": "light",
+      "autoplay": false,
+      "defaultPlaybackRate": 1,
+      "defaultVolume": 0.8
+    },
+    "lastLogin": "2025-08-15T13:53:27.056Z"
+  },
+  {
+    "id": "user-1755875438988-z1kre63cr",
+    "username": "huyinghao1",
+    "email": "1231@qq.com",
+    "password": "$2b$12$8xxwpDJ0uGMtx7nOeOwejOmBOaRGXvQ.7PSgqwW7Mvn6BE07UL5Ci",
+    "role": "user",
+    "status": "active",
+    "createdAt": "2025-08-22T15:10:38.988Z",
+    "preferences": {
+      "theme": "light",
+      "autoplay": false,
+      "defaultPlaybackRate": 1,
+      "defaultVolume": 0.8
+    },
+    "lastLogin": "2025-08-22T15:10:53.974Z"
+  },
+  {
+    "id": "user-1755924869586-kakckdw9w",
+    "username": "xhtsg",
+    "email": "12345678@qq.com",
+    "password": "$2b$12$lRmawToXgQRpKbpz.PJf/eJOjsRrQ/IouqELwLlaUbW7pNGaiW/n6",
+    "role": "user",
+    "status": "active",
+    "createdAt": "2025-08-23T04:54:29.586Z",
+    "preferences": {
+      "theme": "light",
+      "autoplay": false,
+      "defaultPlaybackRate": 1,
+      "defaultVolume": 0.8
+    },
+    "lastLogin": "2025-08-23T04:54:40.317Z"
   }
 ]

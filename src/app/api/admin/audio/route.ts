@@ -1,128 +1,217 @@
-import { NextRequest, NextResponse } from 'next/server';
-import db from '@/lib/db';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+// 音频管理 API
 
-// 管理员专用的音频列表API
-export async function GET(request: NextRequest) {
+import { NextRequest, NextResponse } from 'next/server';
+import { getDatabase } from '@/lib/database';
+import { withSecurityAndValidation } from '@/lib/secureApiWrapper';
+import { z } from 'zod';
+import { ANTD_ADMIN_PERMISSIONS } from '@/hooks/useAntdAdminAuth';
+import logger from '@/lib/logger';
+
+// 音频接口
+interface Audio {
+  id: string;
+  title: string;
+  description?: string;
+  filename: string;
+  url: string;
+  "coverImage"?: string;
+  duration?: number;
+  filesize?: number;
+  subject: string;
+  speaker?: string;
+  "uploadDate": string;
+  status: string;
+}
+
+// GET - 获取音频列表
+const listSchema = z.object({
+  page: z.string().optional(),
+  pageSize: z.string().optional(),
+  search: z.string().optional(),
+  subject: z.string().optional(),
+  status: z.string().optional(),
+});
+
+export const GET = withSecurityAndValidation(async (request: NextRequest, query: z.infer<typeof listSchema>) => {
   try {
-    console.log('Admin audio API called');
-    
-    // 检查管理员权限
-    const session = await getServerSession(authOptions);
-    console.log('Session:', session);
-    
-    if (!session?.user) {
-      console.log('No session found');
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: '需要登录才能访问'
-        }
-      }, { status: 401 });
-    }
-    
-    const user = session.user as any;
-    console.log('User:', user);
-    
-    const isAdmin = user?.role && ['admin', 'moderator', 'editor'].includes(user.role);
-    console.log('Is admin:', isAdmin, 'Role:', user?.role);
-    
-    if (!isAdmin) {
-      console.log('User is not admin');
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: '需要管理员权限'
-        }
-      }, { status: 403 });
-    }
-    
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const search = searchParams.get('search') || '';
-    const category = searchParams.get('category') || '';
-    
-    const offset = (page - 1) * limit;
-    
-    // 构建查询
-    let baseQuery = 'SELECT * FROM audios';
-    let countQuery = 'SELECT COUNT(*) as total FROM audios';
-    const whereClauses = [];
+    const db = getDatabase();
+    const page = parseInt(query.page || '1');
+    const pageSize = parseInt(query.pageSize || '10');
+    const search = query.search || '';
+    const subject = query.subject || '';
+    const status = query.status || '';
+
+    let whereClause = 'WHERE 1=1';
     const params: any[] = [];
-    const countParams: any[] = [];
-    
-    if (category) {
-      whereClauses.push('subject = ?');
-      params.push(category);
-      countParams.push(category);
-    }
-    
+    let paramIndex = 1;
+
+    // 搜索条件
     if (search) {
-      whereClauses.push('(title LIKE ? OR description LIKE ? OR speaker LIKE ?)');
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
-      countParams.push(searchTerm, searchTerm, searchTerm);
+      whereClause += ` AND (title LIKE $${paramIndex} OR description LIKE $${paramIndex + 1} OR speaker LIKE $${paramIndex + 2})`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+      paramIndex += 3;
     }
-    
-    if (whereClauses.length > 0) {
-      const whereString = ` WHERE ${whereClauses.join(' AND ')}`;
-      baseQuery += whereString;
-      countQuery += whereString;
+
+    // 分类筛选
+    if (subject) {
+      whereClause += ` AND subject = $${paramIndex}`;
+      params.push(subject);
+      paramIndex++;
     }
+
+    // 状态筛选
+    if (status) {
+      whereClause += ` AND status = $${paramIndex}`;
+      params.push(status);
+      paramIndex++;
+    }
+
+    // 获取音频列表
+    const offset = (page - 1) * pageSize;
+    const audiosQuery = `
+      SELECT 
+        id,
+        title,
+        description,
+        filename,
+        url,
+        coverImage,
+        duration,
+        size as filesize,
+        subject,
+        speaker,
+        uploadDate,
+        status
+      FROM audios 
+      ${whereClause}
+      ORDER BY uploadDate DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
     
-    // 添加排序和分页
-    baseQuery += ' ORDER BY uploadDate DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    const audiosResult = await db.query(audiosQuery, [...params, pageSize, offset]);
     
-    console.log('Executing query:', baseQuery, 'with params:', params);
-    
-    // 执行查询
-    const getAudiosStmt = db.prepare(baseQuery);
-    const getTotalStmt = db.prepare(countQuery);
-    
-    const audios = getAudiosStmt.all(params);
-    const { total: totalItems } = getTotalStmt.get(countParams) as { total: number };
-    
-    console.log(`Found ${audios.length} audios, total: ${totalItems}`);
-    
-    // 处理数据
-    const processedAudios = audios.map((audio: any) => ({
-      ...audio,
-      tags: typeof audio.tags === 'string' ? JSON.parse(audio.tags || '[]') : (audio.tags || []),
-      uploadDate: audio.uploadDate || new Date().toISOString(),
-      subject: audio.subject || '未分类',
-      speaker: audio.speaker || '',
-      duration: audio.duration || 0
+    // 获取总数
+    const countQuery = `SELECT COUNT(*) as total FROM audios ${whereClause}`;
+    const countResult = await db.query(countQuery, params);
+    const total = parseInt(countResult.rows[0]?.total || '0');
+
+    // 格式化音频数据
+    const audios: Audio[] = audiosResult.rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      filename: row.filename,
+      url: row.url,
+      coverImage: row.coverImage,
+      duration: row.duration,
+      filesize: row.filesize,
+      subject: row.subject || '未分类',
+      speaker: row.speaker,
+      uploadDate: row.uploadDate,
+      status: row.status || 'draft'
     }));
-    
-    const totalPages = Math.ceil(totalItems / limit);
-    
+
     return NextResponse.json({
       success: true,
-      data: processedAudios,
+      data: audios,
       pagination: {
         page,
-        limit,
-        totalItems,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize)
       }
     });
-    
+
   } catch (error) {
-    console.error('Admin audio API error:', error);
+    logger.error('获取音频列表失败:', error);
     return NextResponse.json({
       success: false,
       error: {
-        code: 'INTERNAL_ERROR',
         message: '获取音频列表失败',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : '未知错误'
       }
     }, { status: 500 });
   }
-}
+}, listSchema, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.EDIT_AUDIO, ANTD_ADMIN_PERMISSIONS.VIEW_USERS] });
+
+// POST - 创建新音频
+const createSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  subject: z.string().min(1),
+  speaker: z.string().optional(),
+  status: z.string().optional(),
+  coverImage: z.string().optional(),
+  filename: z.string().optional(),
+  url: z.string().optional(),
+  duration: z.number().optional(),
+  filesize: z.number().optional(),
+});
+
+export const POST = withSecurityAndValidation(async (request: NextRequest, body: z.infer<typeof createSchema>) => {
+  try {
+    const db = getDatabase();
+    const { title, description, subject, speaker, status = 'draft', coverImage, filename, url, duration, filesize } = body;
+
+    // 创建音频记录
+    const result = await db.query(`
+      INSERT INTO audios (
+        title, 
+        description, 
+        filename, 
+        url, 
+        coverImage, 
+        duration, 
+        size, 
+        subject, 
+        speaker, 
+        upload_date, 
+        status
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+      RETURNING *
+    `, [
+      title, 
+      description, 
+      filename || `${title}.mp3`, 
+      url || `/uploads/${title}.mp3`, 
+      coverImage || null, 
+      duration, 
+      filesize, 
+      subject, 
+      speaker, 
+      status
+    ]);
+
+    const newAudio = result.rows[0];
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: newAudio.id,
+        title: newAudio.title,
+        description: newAudio.description,
+        filename: newAudio.filename,
+        url: newAudio.url,
+        coverImage: newAudio.coverImage,
+        duration: newAudio.duration,
+        filesize: newAudio.filesize,
+        subject: newAudio.subject,
+        speaker: newAudio.speaker,
+        uploadDate: newAudio.upload_date,
+        status: newAudio.status
+      },
+      message: '音频创建成功'
+    });
+
+  } catch (error) {
+    logger.error('创建音频失败:', error);
+    return NextResponse.json({
+      success: false,
+      error: {
+        message: '创建音频失败',
+        details: error instanceof Error ? error.message : '未知错误'
+      }
+    }, { status: 500 });
+  }
+}, createSchema, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.EDIT_AUDIO], requireCSRF: true });

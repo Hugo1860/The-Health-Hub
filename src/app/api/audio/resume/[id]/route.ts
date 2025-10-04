@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { audioStreamOptimizer } from '@/lib/AudioStreamOptimizer';
-import { optimizedDb } from '@/lib/OptimizedDatabase';
+import { db } from '@/lib/database';
 import { z } from 'zod';
 
 // 断点续传状态存储
@@ -70,9 +70,12 @@ export async function POST(
     // 可选：保存到数据库以实现持久化
     try {
       await optimizedDb.execute(
-        `INSERT OR REPLACE INTO audio_resume_states 
-         (user_id, audio_id, position, session_id, updated_at) 
-         VALUES (?, ?, ?, ?, datetime('now'))`,
+        `INSERT INTO audio_resume_states (user_id, audio_id, position, session_id, updated_at)
+         VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT (user_id, audio_id) DO UPDATE SET 
+           position = EXCLUDED.position,
+           session_id = EXCLUDED.session_id,
+           updated_at = CURRENT_TIMESTAMP`,
         [user_id, audioId, position, session_id]
       );
     } catch (dbError) {

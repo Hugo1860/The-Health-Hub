@@ -9,12 +9,31 @@ export interface AudioFile {
   url: string;
   filename: string;
   uploadDate: string;
-  subject?: string;
+  subject?: string; // 兼容性字段
+  categoryId?: string; // 一级分类ID
+  subcategoryId?: string; // 二级分类ID
   tags?: string[];
   speaker?: string;
   recordingDate?: string;
   duration?: number;
   coverImage?: string; // 封面图片URL
+  playCount?: number; // 播放次数
+  // 分类信息
+  category?: {
+    id: string;
+    name: string;
+    color?: string;
+    icon?: string;
+  };
+  subcategory?: {
+    id: string;
+    name: string;
+  };
+  // 兼容性字段 - 用于API返回的数据映射
+  categoryName?: string;
+  categoryColor?: string;
+  categoryIcon?: string;
+  subcategoryName?: string;
 }
 
 interface AudioPlayerState {
@@ -95,6 +114,14 @@ export const useAudioStore = create<AudioStore>()(
           const { queue } = get();
           const audioList = [audio, ...queue];
           get().preloadRelatedAudios(audioList);
+        }
+
+        // 追踪播放行为（如果可用）
+        if (audio && typeof window !== 'undefined') {
+          const event = new CustomEvent('trackAudioPlay', { 
+            detail: { audioId: audio.id, timestamp: Date.now() }
+          });
+          window.dispatchEvent(event);
         }
       },
       

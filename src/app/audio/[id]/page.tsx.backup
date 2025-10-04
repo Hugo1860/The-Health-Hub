@@ -1,0 +1,665 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import {
+  Row,
+  Col,
+  Card,
+  Typography,
+  Button,
+  Space,
+  Tag,
+  Rate,
+  Avatar,
+  List,
+  Input,
+  Divider,
+  Spin,
+  Alert,
+  Tooltip,
+  Badge
+} from 'antd';
+import {
+  PlayCircleOutlined,
+  PauseCircleOutlined,
+  HeartOutlined,
+  HeartFilled,
+  ShareAltOutlined,
+  DownloadOutlined,
+  UserOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
+  SoundOutlined,
+  MessageOutlined
+} from '@ant-design/icons';
+import AntdHomeLayout from '../../../components/AntdHomeLayout';
+import { useAudioStore } from '../../../store/audioStore';
+import ShareButton from '../../../components/ShareButton';
+import AppWrapper, { useMessage } from '../../../components/AppWrapper';
+import { fixAudioUrl, checkAudioExists } from '../../../utils/audioUtils';
+import styles from './audio-detail.module.css';
+
+const { Title, Text, Paragraph } = Typography;
+const { TextArea } = Input;
+
+interface AudioDetail {
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  filename: string;
+  uploadDate: string;
+  categoryId?: string;
+  subcategoryId?: string;
+  tags: string[];
+  speaker?: string;
+  recordingDate?: string;
+  duration?: number;
+  coverImage?: string;
+  status: string;
+  category?: {
+    id: string;
+    name: string;
+    color: string;
+    icon: string;
+  };
+  subcategory?: {
+    id: string;
+    name: string;
+  };
+}
+
+interface Rating {
+  averageRating: number;
+  totalRatings: number;
+  distribution: { [key: number]: number };
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  userId: string;
+  username: string;
+  createdAt: string;
+}
+
+function AudioDetailPageContent() {
+  const params = useParams();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const { currentAudio, playAudio, pauseAudio, isPlaying } = useAudioStore();
+  const message = useMessage();
+  
+  const [audio, setAudio] = useState<AudioDetail | null>(null);
+  const [rating, setRating] = useState<Rating | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [userRating, setUserRating] = useState(0);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [relatedAudios, setRelatedAudios] = useState<AudioDetail[]>([]);
+
+  const audioId = params.id as string;
+
+  useEffect(() => {
+    if (audioId) {
+      fetchAudioDetail();
+      fetchRating();
+      fetchComments();
+      checkFavoriteStatus();
+      fetchRelatedAudios();
+    }
+  }, [audioId]);
+
+  const fetchAudioDetail = async () => {
+    try {
+      const response = await fetch(`/api/audio/${audioId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        // 修复音频 URL
+        const audioData = {
+          ...data.data,
+          url: fixAudioUrl(data.data.url),
+          coverImage: data.data.coverImage ? fixAudioUrl(data.data.coverImage) : undefined
+        };
+        setAudio(audioData);
+        
+        // 检查音频文件是否存在
+        if (audioData.url) {
+          checkAudioExists(audioData.url).then(exists => {
+            if (!exists) {
+              console.warn('音频文件不存在:', audioData.url);
+            }
+          });
+        }
+      } else {
+        message.error(data.error?.message || '获取音频详情失败');
+      }
+    } catch (error) {
+      console.error('获取音频详情失败:', error);
+      message.error('获取音频详情失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRating = async () => {
+    try {
+      const response = await fetch(`/api/ratings?audioId=${audioId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRating(data.data);
+      }
+    } catch (error) {
+      console.error('获取评分失败:', error);
+    }
+  };
+
+  const fetchComments = async () => {
+    try {
+      const response = await fetch(`/api/comments?audioId=${audioId}&limit=10`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setComments(data.data.comments);
+      } else {
+        console.error('获取评论失败:', data.error?.message);
+      }
+    } catch (error) {
+      console.error('获取评论失败:', error);
+    }
+  };
+
+  const checkFavoriteStatus = async () => {
+    if (!session) return;
+    
+    try {
+      const response = await fetch(`/api/favorites?audioId=${audioId}`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setIsFavorited(data.data.isFavorited);
+      }
+    } catch (error) {
+      console.error('检查收藏状态失败:', error);
+    }
+  };
+
+  const handlePlay = () => {
+    if (!audio) return;
+    
+    if (currentAudio?.id === audio.id && isPlaying) {
+      pauseAudio();
+    } else {
+      playAudio({
+        id: audio.id,
+        title: audio.title,
+        url: audio.url,
+        duration: audio.duration || 0,
+        category: audio.category?.name || '未分类',
+        speaker: audio.speaker || '未知'
+      });
+    }
+  };
+
+  const handleRating = async (value: number) => {
+    if (!session) {
+      message.warning('请先登录后再评分');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/ratings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audioId,
+          value
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserRating(value);
+        fetchRating(); // 重新获取评分数据
+        message.success('评分成功');
+      } else {
+        message.error(data.error?.message || '评分失败');
+      }
+    } catch (error) {
+      console.error('评分失败:', error);
+      message.error('评分失败');
+    }
+  };
+
+  const handleComment = async () => {
+    if (!session) {
+      message.warning('请先登录后再评论');
+      return;
+    }
+
+    if (!newComment.trim()) {
+      message.warning('请输入评论内容');
+      return;
+    }
+
+    setCommentLoading(true);
+    try {
+      const response = await fetch('/api/comments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audioId,
+          content: newComment.trim()
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setComments([data.data, ...comments]);
+        setNewComment('');
+        message.success('评论发表成功');
+      } else {
+        message.error(data.error?.message || '发表评论失败');
+      }
+    } catch (error) {
+      console.error('发表评论失败:', error);
+      message.error('发表评论失败');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const handleFavorite = async () => {
+    if (!session) {
+      message.warning('请先登录后再收藏');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          audioId,
+          action: isFavorited ? 'remove' : 'add'
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setIsFavorited(!isFavorited);
+        message.success(data.message);
+      } else {
+        message.error(data.error?.message || '收藏操作失败');
+      }
+    } catch (error) {
+      console.error('收藏操作失败:', error);
+      message.error('收藏操作失败');
+    }
+  };
+
+  const fetchRelatedAudios = async () => {
+    try {
+      const response = await fetch(`/api/audio/${audioId}/related?limit=5`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setRelatedAudios(data.data);
+      }
+    } catch (error) {
+      console.error('获取相关音频失败:', error);
+    }
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '未知';
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('zh-CN');
+  };
+
+  if (loading) {
+    return (
+      <AntdHomeLayout>
+        <div className={styles.loadingContainer}>
+          <Spin size="large" />
+        </div>
+      </AntdHomeLayout>
+    );
+  }
+
+  if (!audio) {
+    return (
+      <AntdHomeLayout>
+        <div className={styles.errorContainer}>
+          <Alert
+            message="音频不存在"
+            description="您访问的音频可能已被删除或不存在"
+            type="error"
+            showIcon
+            action={
+              <Button size="small" onClick={() => router.push('/')}>
+                返回首页
+              </Button>
+            }
+          />
+        </div>
+      </AntdHomeLayout>
+    );
+  }
+
+  const isCurrentlyPlaying = currentAudio?.id === audio.id && isPlaying;
+
+  return (
+    <AntdHomeLayout>
+      <div className={styles.audioDetailContainer}>
+        <Row gutter={[24, 24]}>
+          {/* 左侧音频信息栏 */}
+          <Col xs={24} lg={8}>
+            {/* 音频基本信息 */}
+            <Card className={styles.audioInfoCard} style={{ marginBottom: 16 }}>
+              {/* 音频封面 */}
+              <div className={styles.coverContainer} style={{ marginBottom: 16 }}>
+                {audio.coverImage ? (
+                  <img 
+                    src={audio.coverImage} 
+                    alt={audio.title}
+                    className={styles.coverImage}
+                    style={{ width: '100%', borderRadius: 8 }}
+                  />
+                ) : (
+                  <div style={{ 
+                    width: '100%', 
+                    aspectRatio: '1', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    backgroundColor: '#f5f5f5',
+                    borderRadius: 8
+                  }}>
+                    <SoundOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
+                  </div>
+                )}
+              </div>
+
+              {/* 音频标题 */}
+              <Title level={3} className={styles.audioTitle} style={{ marginBottom: 16 }}>
+                {audio.title}
+              </Title>
+              
+              {/* 主讲人 */}
+              {audio.speaker && (
+                <div style={{ marginBottom: 12 }}>
+                  <Text type="secondary">
+                    <UserOutlined style={{ marginRight: 8 }} />
+                    主讲人：{audio.speaker}
+                  </Text>
+                </div>
+              )}
+              
+              {/* 分类标签 */}
+              <div className={styles.audioMeta} style={{ marginBottom: 16 }}>
+                <Space wrap>
+                  {audio.category && (
+                    <Tag color={audio.category.color} className={styles.categoryTag}>
+                      {audio.category.icon} {audio.category.name}
+                    </Tag>
+                  )}
+                  {audio.subcategory && (
+                    <Tag className={styles.subcategoryTag}>{audio.subcategory.name}</Tag>
+                  )}
+                </Space>
+              </div>
+              
+              {/* 时间信息 */}
+              <div style={{ marginBottom: 16 }}>
+                <Space direction="vertical" size="small">
+                  <Text type="secondary">
+                    <CalendarOutlined style={{ marginRight: 8 }} />
+                    上传时间：{formatDate(audio.uploadDate)}
+                  </Text>
+                  <Text type="secondary">
+                    <ClockCircleOutlined style={{ marginRight: 8 }} />
+                    音频时长：{formatDuration(audio.duration)}
+                  </Text>
+                </Space>
+              </div>
+
+              {/* 操作按钮 */}
+              <div className={styles.actionButtons}>
+                <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                  <Button
+                    type="primary"
+                    icon={isCurrentlyPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                    onClick={handlePlay}
+                    size="large"
+                    block
+                    className={`${styles.actionButton} ${styles.primaryButton}`}
+                  >
+                    {isCurrentlyPlaying ? '暂停播放' : '开始播放'}
+                  </Button>
+                  
+                  <Space style={{ width: '100%' }}>
+                    <Button
+                      icon={isFavorited ? <HeartFilled /> : <HeartOutlined />}
+                      onClick={handleFavorite}
+                      className={`${styles.actionButton} ${styles.favoriteButton} ${isFavorited ? styles.favorited : ''}`}
+                      style={{ flex: 1 }}
+                    >
+                      {isFavorited ? '已收藏' : '收藏'}
+                    </Button>
+                    
+                    <ShareButton
+                      audioId={audio.id}
+                      audioTitle={audio.title}
+                      audioDescription={audio.description}
+                      audioData={audio}
+                      size="md"
+                      showText={true}
+                    />
+                    
+                    <Button 
+                      icon={<DownloadOutlined />}
+                      className={styles.actionButton}
+                      style={{ flex: 1 }}
+                    >
+                      下载
+                    </Button>
+                  </Space>
+                </Space>
+              </div>
+            </Card>
+
+            {/* 音频简介 */}
+            {audio.description && (
+              <Card title="简介" size="small" style={{ marginBottom: 16 }}>
+                <Paragraph ellipsis={{ rows: 4, expandable: true, symbol: '展开' }}>
+                  {audio.description}
+                </Paragraph>
+              </Card>
+            )}
+
+            {/* 标签 */}
+            {audio.tags && audio.tags.length > 0 && (
+              <Card title="标签" size="small" style={{ marginBottom: 16 }}>
+                <Space wrap>
+                  {audio.tags.map((tag, index) => (
+                    <Tag key={index}>{tag}</Tag>
+                  ))}
+                </Space>
+              </Card>
+            )}
+
+            {/* 评分区域 */}
+            <Card title="评分" size="small" style={{ marginBottom: 16 }}>
+              <div className={styles.ratingSection}>
+                <div className={styles.ratingDisplay} style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <div className={styles.ratingScore} style={{ fontSize: 32, fontWeight: 'bold', color: '#1890ff' }}>
+                    {rating?.averageRating?.toFixed(1) || '0.0'}
+                  </div>
+                  <div className={styles.ratingStars}>
+                    <Rate disabled value={rating?.averageRating || 0} allowHalf />
+                  </div>
+                  <div className={styles.ratingCount}>
+                    <Text type="secondary">基于 {rating?.totalRatings || 0} 个评分</Text>
+                  </div>
+                </div>
+                
+                <div className={styles.userRating}>
+                  <Text strong>为这个音频评分：</Text>
+                  <div style={{ marginTop: 8, textAlign: 'center' }}>
+                    <Rate value={userRating} onChange={handleRating} />
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* 相关推荐 */}
+            <Card title="相关推荐" size="small" className={styles.relatedCard}>
+              <List
+                size="small"
+                dataSource={relatedAudios}
+                locale={{ emptyText: '暂无相关推荐' }}
+                renderItem={(item) => (
+                  <List.Item
+                    className={styles.relatedItem}
+                    onClick={() => router.push(`/audio/${item.id}`)}
+                  >
+                    <List.Item.Meta
+                      avatar={
+                        <Avatar 
+                          src={item.coverImage}
+                          icon={<SoundOutlined />}
+                          style={{ backgroundColor: item.category?.color || '#13C2C2' }}
+                        />
+                      }
+                      title={
+                        <div className={styles.relatedItemTitle}>
+                          {item.title}
+                        </div>
+                      }
+                      description={
+                        <div className={styles.relatedItemMeta}>
+                          {item.speaker && (
+                            <div className={styles.relatedItemInfo}>
+                              主讲：{item.speaker}
+                            </div>
+                          )}
+                          {item.category && (
+                            <Tag size="small" color={item.category.color}>
+                              {item.category.icon} {item.category.name}
+                            </Tag>
+                          )}
+                          <div className={styles.relatedItemInfo}>
+                            时长：{formatDuration(item.duration)}
+                          </div>
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </Card>
+          </Col>
+
+          {/* 右侧主要内容 - 评论区域 */}
+          <Col xs={24} lg={16}>
+            {/* 评论区域 */}
+            <Card className={styles.commentCard}>
+              <Title level={4} className={styles.sectionTitle}>
+                <MessageOutlined />
+                评论 ({comments.length})
+              </Title>
+              
+              {/* 发表评论 */}
+              {session ? (
+                <div className={styles.commentForm}>
+                  <TextArea
+                    rows={4}
+                    placeholder="写下你的评论..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className={styles.commentTextarea}
+                  />
+                  <Button
+                    type="primary"
+                    onClick={handleComment}
+                    loading={commentLoading}
+                    style={{ marginTop: 12 }}
+                  >
+                    发表评论
+                  </Button>
+                </div>
+              ) : (
+                <Alert
+                  message="请登录后发表评论"
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 24 }}
+                />
+              )}
+
+              {/* 评论列表 */}
+              <div className={styles.commentList}>
+                <List
+                  dataSource={comments}
+                  renderItem={(comment) => (
+                    <List.Item className={styles.commentItem}>
+                      <List.Item.Meta
+                        avatar={<Avatar icon={<UserOutlined />} />}
+                        title={
+                          <div className={styles.commentMeta}>
+                            <Space>
+                              <Text strong className={styles.commentAuthor}>
+                                {comment.username}
+                              </Text>
+                              <Text type="secondary" className={styles.commentDate}>
+                                {formatDate(comment.createdAt)}
+                              </Text>
+                            </Space>
+                          </div>
+                        }
+                        description={
+                          <div className={styles.commentContent}>
+                            {comment.content}
+                          </div>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      </div>
+    </AntdHomeLayout>
+  );
+}
+
+export default function AudioDetailPage() {
+  return (
+    <AppWrapper>
+      <AudioDetailPageContent />
+    </AppWrapper>
+  );
+}

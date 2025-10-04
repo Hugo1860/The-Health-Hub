@@ -14,7 +14,8 @@ import {
   Spin,
   Result,
   Badge,
-  Breadcrumb
+  Breadcrumb,
+  App
 } from 'antd';
 import {
   DashboardOutlined,
@@ -62,6 +63,20 @@ export default function AntdAdminLayout({ children }: AntdAdminLayoutProps) {
   // 判断是否为移动端
   const isMobile = !screens.md;
 
+  // 将当前用户信息暴露到 window，供页面请求头使用
+  useEffect(() => {
+    try {
+      const user = (session?.user as any) || null;
+      if (typeof window !== 'undefined') {
+        (window as any).CURRENT_USER_ID = user?.id || '';
+        (window as any).CURRENT_USER_ROLE = user?.role || '';
+        (window as any).CURRENT_USER_EMAIL = user?.email || '';
+      }
+    } catch (_) {
+      // 忽略
+    }
+  }, [session]);
+
   // 菜单项配置
   const menuItems: MenuItem[] = [
     {
@@ -76,7 +91,7 @@ export default function AntdAdminLayout({ children }: AntdAdminLayoutProps) {
       disabled: !hasPermission(ANTD_ADMIN_PERMISSIONS.UPLOAD_AUDIO),
     },
     {
-      key: '/admin/categories',
+      key: '/admin/categories-db',
       icon: <TagsOutlined />,
       label: '分类管理',
       disabled: !hasPermission(ANTD_ADMIN_PERMISSIONS.MANAGE_CATEGORIES),
@@ -94,26 +109,11 @@ export default function AntdAdminLayout({ children }: AntdAdminLayoutProps) {
       disabled: !hasPermission(ANTD_ADMIN_PERMISSIONS.VIEW_USERS),
     },
     {
-      key: '/admin/analytics',
-      icon: <BarChartOutlined />,
-      label: '数据分析',
-      disabled: !hasPermission(ANTD_ADMIN_PERMISSIONS.VIEW_ANALYTICS),
-    },
-    {
-      key: 'logs',
+      key: '/admin/logs',
       icon: <SecurityScanOutlined />,
       label: '日志管理',
       disabled: !hasPermission(ANTD_ADMIN_PERMISSIONS.VIEW_LOGS),
-      children: [
-        {
-          key: '/admin/logs',
-          label: '安全日志',
-        },
-        {
-          key: '/admin/errors',
-          label: '错误日志',
-        },
-      ],
+      style: { color: '#000' }, // 设置字体颜色为黑色
     },
     {
       key: '/admin/system',
@@ -233,7 +233,9 @@ export default function AntdAdminLayout({ children }: AntdAdminLayoutProps) {
         alignItems: 'center',
         justifyContent: 'center'
       }}>
-        <Spin size="large" tip="正在验证权限..." />
+        <Spin size="large" tip="正在验证权限...">
+          <div style={{ minHeight: 200 }} />
+        </Spin>
       </div>
     );
   }
@@ -273,7 +275,8 @@ export default function AntdAdminLayout({ children }: AntdAdminLayoutProps) {
   }
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <App>
+      <Layout style={{ minHeight: '100vh' }}>
       {/* 移动端顶部Logo和菜单 */}
       {isMobile && (
         <div style={{
@@ -456,5 +459,6 @@ export default function AntdAdminLayout({ children }: AntdAdminLayoutProps) {
         </Content>
       </Layout>
     </Layout>
+    </App>
   );
 }

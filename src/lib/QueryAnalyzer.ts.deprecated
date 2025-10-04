@@ -1,0 +1,39 @@
+// ⚠️ DEPRECATED: This module has been deprecated
+// Please use the PostgreSQL implementation in src/lib/database.ts instead
+
+console.warn('Warning: QueryAnalyzer.ts is deprecated. Use src/lib/database.ts instead.');
+
+// Export empty objects to prevent import errors during migration
+export const queryAnalyzer = {
+  analyzeQuery: () => ({}),
+  getQueryPlan: () => [],
+  optimizeQuery: () => '',
+  getPerformanceStats: () => ({}),
+  cleanup: () => {}
+};
+
+export class QueryAnalyzer {
+  constructor() {
+    console.warn('QueryAnalyzer is deprecated');
+  }
+  
+  analyzeQuery() {
+    return {};
+  }
+  
+  getQueryPlan() {
+    return [];
+  }
+  
+  optimizeQuery(query: string) {
+    return query;
+  }
+  
+  getPerformanceStats() {
+    return {};
+  }
+  
+  cleanup() {}
+}
+
+export default queryAnalyzer;

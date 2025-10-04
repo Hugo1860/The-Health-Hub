@@ -32,7 +32,9 @@ export const AntdAdminGuard: React.FC<AntdAdminGuardProps> = ({
         alignItems: 'center', 
         justifyContent: 'center' 
       }}>
-        <Spin size="large" tip="正在验证权限..." />
+        <Spin size="large" tip="正在验证权限...">
+          <div style={{ minHeight: 200 }} />
+        </Spin>
       </div>
     );
   }

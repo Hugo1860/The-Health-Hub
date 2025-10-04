@@ -1,0 +1,125 @@
+# Node.js兼容性测试工作流
+name: Node.js Compatibility Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  compatibility-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [22.0.0, 22.18.0, 22.x]
+        
+    steps:
+    - name: Checkout代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: 显示Node.js和npm版本
+      run: |
+        echo "Node.js版本: $(node --version)"
+        echo "npm版本: $(npm --version)"
+        
+    - name: 运行兼容性检查
+      run: |
+        chmod +x scripts/check-node-compatibility.js
+        node scripts/check-node-compatibility.js
+        
+    - name: 安装依赖
+      run: npm ci
+      
+    - name: 运行类型检查
+      run: npm run type-check
+      
+    - name: 运行Lint检查
+      run: npm run lint
+      
+    - name: 构建应用
+      run: npm run build
+      
+    - name: 运行健康检查
+      run: |
+        npm start &
+        sleep 10
+        curl -f http://localhost:3000/api/health || exit 1
+        pkill -f "npm start" || true
+
+  dependency-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.18.0'
+        cache: 'npm'
+        
+    - name: 安装依赖
+      run: npm ci
+      
+    - name: 运行安全审计
+      run: npm audit --audit-level=moderate
+      
+    - name: 检查过时的依赖
+      run: npm outdated || true
+      
+    - name: 生成依赖报告
+      run: |
+        echo "## 依赖报告" > dependency-report.md
+        echo "### 安全审计" >> dependency-report.md
+        npm audit --json > audit.json || true
+        echo "### 过时的依赖" >> dependency-report.md
+        npm outdated --json > outdated.json || true
+        
+    - name: 上传依赖报告
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-report
+        path: |
+          dependency-report.md
+          audit.json
+          outdated.json
+
+  performance-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout代码
+      uses: actions/checkout@v4
+      
+    - name: 设置Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22.18.0'
+        cache: 'npm'
+        
+    - name: 安装依赖
+      run: npm ci
+      
+    - name: 构建性能测试
+      run: |
+        echo "开始构建性能测试..."
+        time npm run build
+        
+    - name: 内存使用测试
+      run: |
+        echo "测试内存使用..."
+        node --max-old-space-size=4096 node_modules/.bin/next build
+        
+    - name: 启动时间测试
+      run: |
+        echo "测试启动时间..."
+        time timeout 30s npm start || true

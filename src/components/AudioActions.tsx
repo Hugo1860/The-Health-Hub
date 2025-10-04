@@ -37,7 +37,8 @@ export default function AudioActions({ audio, onPlay }: AudioActionsProps) {
         audioId={audio.id} 
         audioTitle={audio.title} 
         audioDescription={audio.description} 
-        size="md" 
+        size="md"
+        audioData={audio}
       />
 
       {/* 添加到播放列表按钮 */}

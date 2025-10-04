@@ -35,16 +35,19 @@ export function MainContent() {
   const fetchContent = async () => {
     try {
       // 获取最近更新的音频
-      const recentResponse = await fetch('/api/audio?limit=8&sort=recent');
+      const recentResponse = await fetch('/api/audio-fixed?limit=8&sortBy=upload_date&sortOrder=desc');
       if (recentResponse.ok) {
         const recentData = await recentResponse.json();
-        setRecentUpdates(recentData);
+        if (recentData.success && recentData.data) {
+          setRecentUpdates(recentData.data);
+        }
       }
 
       // 获取所有音频并按分类分组
-      const allResponse = await fetch('/api/audio');
+      const allResponse = await fetch('/api/audio-fixed?limit=50');
       if (allResponse.ok) {
-        const allData = await allResponse.json();
+        const allResult = await allResponse.json();
+        const allData = allResult.success ? allResult.data : [];
         
         // 按分类分组
         const categories: Category[] = [
@@ -58,7 +61,7 @@ export function MainContent() {
         const categorized = categories.map(category => ({
           category,
           audios: allData.filter((audio: AudioFile) => 
-            audio.subject?.toLowerCase().includes(category.name) ||
+            audio.category?.name?.toLowerCase().includes(category.name) ||
             audio.tags?.some((tag: string) => tag.toLowerCase().includes(category.name))
           ).slice(0, 6),
           showMore: true

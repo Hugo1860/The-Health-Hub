@@ -1,32 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { generateCSRFToken } from '@/lib/csrf';
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
 
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      );
+// GET - 获取CSRF令牌 - 需要用户认证
+export const GET = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      // 生成CSRF token
+      const userId = request.headers.get('x-user-id') as string;
+      const csrfToken = generateCSRFToken(userId);
+      
+      return ApiResponse.success({
+        csrfToken,
+        timestamp: Date.now()
+      });
+      
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error as Error, 'CSRF token generation error');
     }
-
-    // 生成CSRF token
-    const csrfToken = generateCSRFToken(session.user.id);
-    
-    return NextResponse.json({
-      csrfToken,
-      timestamp: Date.now()
-    });
-    
-  } catch (error) {
-    console.error('CSRF token generation error:', error);
-    return NextResponse.json(
-      { error: '生成CSRF令牌失败' },
-      { status: 500 }
-    );
-  }
-}
+  }, { requireAuth: true, enableRateLimit: true, allowedMethods: ['GET'] }
+)

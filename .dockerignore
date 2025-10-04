@@ -1,0 +1,79 @@
+# Node modules
+node_modules
+npm-debug.log
+
+# Next.js
+.next
+out
+dist
+
+# 开发文件
+*.log
+*.md
+!README.md
+.env.local
+.env.development
+.env.test
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# 测试
+coverage
+.nyc_output
+*.test.js
+*.spec.js
+__tests__
+test
+tests
+
+# 临时文件
+tmp
+temp
+*.tmp
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# 部署文件
+*.sh
+*.log
+
+# 文档
+docs
+*.md
+!README.md
+
+# 备份
+*.backup
+*.bak
+*.old
+
+# 数据文件（开发用）
+data/*.json
+*.db
+*.sql
+
+# 上传文件（开发测试用）
+uploads/*
+public/uploads/*
+
+# 构建工具
+.prettierrc
+.eslintrc*
+jest.config.js

@@ -1,74 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getRelatedResources, addRelatedResource } from '@/lib/related-resources';
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
+import { ANTD_ADMIN_PERMISSIONS } from '@/hooks/useAntdAdminAuth';
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const audioId = searchParams.get('audioId');
-    
-    const resources = getRelatedResources();
-    
-    if (audioId) {
-      const filteredResources = resources.filter(resource => resource.audioId === audioId);
-      return NextResponse.json(filteredResources);
+// GET - 获取相关资源列表 - 公开访问
+export const GET = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const { searchParams } = new URL(request.url);
+      const audioId = searchParams.get('audioId');
+      
+      const resources = getRelatedResources();
+      
+      if (audioId) {
+        const filteredResources = resources.filter(resource => resource.audioId === audioId);
+        return ApiResponse.success(filteredResources);
+      }
+      
+      return ApiResponse.success(resources);
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Error fetching related resources');
     }
-    
-    return NextResponse.json(resources);
-  } catch (error) {
-    console.error('Error fetching related resources:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch related resources' },
-      { status: 500 }
-    );
-  }
-}
+  }, { requireAuth: false, enableRateLimit: true }
+);
 
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+// POST - 创建相关资源 - 需要管理员权限
+export const POST = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const body = await request.json();
+      const { audioId, title, url, type, description } = body;
+
+      if (!audioId || !title || !url || !type) {
+        return ApiResponse.badRequest('Missing required fields', {
+          required: ['audioId', 'title', 'url', 'type']
+        });
+      }
+
+      const newResource = addRelatedResource({
+        audioId,
+        title,
+        url,
+        type,
+        description,
+        createdBy: request.headers.get('x-user-id') || 'system',
+      });
+
+      return ApiResponse.created(newResource, 'Related resource created successfully');
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Error creating related resource');
     }
-
-    // Check if user is admin
-    if (session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
-
-    const body = await request.json();
-    const { audioId, title, url, type, description } = body;
-
-    if (!audioId || !title || !url || !type) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    const newResource = addRelatedResource({
-      audioId,
-      title,
-      url,
-      type,
-      description,
-      createdBy: session.user.id,
-    });
-
-    return NextResponse.json(newResource, { status: 201 });
-  } catch (error) {
-    console.error('Error creating related resource:', error);
-    return NextResponse.json(
-      { error: 'Failed to create related resource' },
-      { status: 500 }
-    );
-  }
-}
+  }, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.MANAGE_RESOURCES], requireCSRF: true, enableRateLimit: true, allowedMethods: ['POST'] }
+);

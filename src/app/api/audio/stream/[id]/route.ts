@@ -57,7 +57,7 @@ export async function GET(
       // 返回完整文件
       const file = await readFile(filePath);
       
-      return new NextResponse(file, {
+      return new NextResponse(new Uint8Array(file), {
         status: 200,
         headers: {
           'Content-Length': fileSize.toString(),

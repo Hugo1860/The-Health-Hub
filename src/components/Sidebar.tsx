@@ -38,7 +38,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const response = await fetch('/api/simple-categories');
       if (response.ok) {
         const data = await response.json();
         setCategories(data);

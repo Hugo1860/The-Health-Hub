@@ -1,0 +1,182 @@
+/* 特别推荐幻灯片样式 */
+.special-carousel-dots {
+  bottom: -40px !important;
+}
+
+.special-carousel-dots li {
+  margin: 0 6px !important;
+}
+
+.special-carousel-dots li button {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 107, 53, 0.3) !important;
+  border: 2px solid rgba(255, 107, 53, 0.5) !important;
+  transition: all 0.3s ease !important;
+}
+
+.special-carousel-dots li.slick-active button {
+  background: #ff6b35 !important;
+  border-color: #ff6b35 !important;
+  transform: scale(1.2) !important;
+  box-shadow: 0 0 10px rgba(255, 107, 53, 0.5) !important;
+}
+
+.special-carousel-dots li button:hover {
+  background: #ff6b35 !important;
+  border-color: #ff6b35 !important;
+  transform: scale(1.1) !important;
+}
+
+/* 特别推荐卡片动画效果 */
+.special-recommendation-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.special-recommendation-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.25) !important;
+}
+
+/* 渐变文字效果 */
+.special-gradient-text {
+  background: linear-gradient(45deg, #ff6b35, #f7931e) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-weight: bold !important;
+}
+
+/* 特别推荐标签动画 */
+.special-tag {
+  animation: pulse 2s infinite !important;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(255, 107, 53, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0);
+  }
+}
+
+/* 推荐栏目高度统一样式 */
+.recommendation-card-unified {
+  min-height: 304.45px !important;
+}
+
+.recommendation-card-unified .ant-card-body {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+.recommendation-content-unified {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+/* 精选推荐内容区域高度调整 */
+.featured-recommendation-content {
+  min-height: 216px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* 特别推荐内容区域高度调整 */
+.special-recommendation-content {
+  min-height: 216px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+
+/* 特别推荐内容优化布局 */
+.special-recommendation-content > div:first-child {
+  flex: 0 0 auto;
+}
+
+.special-recommendation-content > div:nth-child(2) {
+  flex: 0 0 auto;
+}
+
+.special-recommendation-content > div:nth-child(3) {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.special-recommendation-content > div:last-child {
+  flex: 0 0 auto;
+}
+
+/* 响应式设计 */
+
+/* 平板设备 (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .recommendation-card-unified {
+    min-height: 260px !important;
+  }
+  
+  .featured-recommendation-content,
+  .special-recommendation-content {
+    min-height: 196px !important;
+  }
+}
+
+/* 移动端设备 (最大768px) */
+@media (max-width: 768px) {
+  .special-carousel-dots {
+    bottom: -30px !important;
+  }
+  
+  .special-carousel-dots li button {
+    width: 10px !important;
+    height: 10px !important;
+  }
+  
+  /* 移动端高度调整 */
+  .recommendation-card-unified {
+    min-height: 240px !important;
+  }
+  
+  .featured-recommendation-content,
+  .special-recommendation-content {
+    min-height: 176px !important;
+  }
+  
+  /* 移动端特别推荐内容调整 */
+  .special-recommendation-content {
+    padding: 12px !important;
+  }
+  
+  .special-recommendation-content .ant-typography-h5 {
+    font-size: 14px !important;
+    margin-bottom: 4px !important;
+  }
+  
+  .special-recommendation-content .ant-typography {
+    font-size: 11px !important;
+    margin-bottom: 6px !important;
+  }
+}
+
+/* 小屏幕移动设备 (最大480px) */
+@media (max-width: 480px) {
+  .recommendation-card-unified {
+    min-height: 220px !important;
+  }
+  
+  .featured-recommendation-content,
+  .special-recommendation-content {
+    min-height: 156px !important;
+  }
+}

@@ -8,11 +8,11 @@ interface AudioFile {
   description: string;
   url: string;
   filename: string;
-  uploadDate: string;
+  "uploadDate": string;
   subject: string;
   tags?: string[];
   speaker?: string;
-  recordingDate?: string;
+  "recordingDate"?: string;
   duration?: number;
   playCount?: number;
   likeCount?: number;

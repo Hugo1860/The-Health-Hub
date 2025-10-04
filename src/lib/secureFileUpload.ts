@@ -9,8 +9,12 @@ import { validateFileUpload, validateImageUpload, sanitizePath } from './validat
 const ALLOWED_AUDIO_TYPES = {
   'audio/mpeg': '.mp3',
   'audio/wav': '.wav',
+  'audio/x-wav': '.wav',
   'audio/mp3': '.mp3',
   'audio/m4a': '.m4a',
+  'audio/x-m4a': '.m4a',
+  'audio/mp4': '.m4a',
+  'audio/aac': '.aac',
 };
 
 const ALLOWED_IMAGE_TYPES = {
@@ -58,8 +62,16 @@ const validateFileSignature = (buffer: ArrayBuffer, mimeType: string): boolean =
              bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45;
     
     case 'audio/m4a':
-      // M4A文件通常以ftyp开始
-      return bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
+    case 'audio/x-m4a':
+    case 'audio/mp4':
+    case 'audio/aac':
+      // M4A/MP4/AAC 文件通常以 ftyp 开头（位置偏移可能变化，检查 0-8 范围内是否出现）
+      for (let i = 0; i <= 8; i++) {
+        if (bytes[i] === 0x66 && bytes[i+1] === 0x74 && bytes[i+2] === 0x79 && bytes[i+3] === 0x70) {
+          return true;
+        }
+      }
+      return false;
     
     case 'image/jpeg':
       // JPEG文件头：FF D8 FF

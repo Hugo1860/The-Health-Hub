@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Statistic, 
-  Progress, 
-  Button, 
-  Space, 
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Progress,
+  Button,
+  Space,
   Table,
   Tag,
   Modal,
@@ -19,7 +19,8 @@ import {
   Alert,
   Descriptions,
   Typography,
-  Divider
+  Divider,
+  App
 } from 'antd';
 import {
   DatabaseOutlined,
@@ -69,6 +70,7 @@ interface BackupInfo {
 
 function AntdSystemSettingsManagement() {
   const { hasPermission } = useAntdPermissionCheck();
+  const { modal } = App.useApp();
   const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -204,7 +206,7 @@ function AntdSystemSettingsManagement() {
 
   // 删除备份
   const handleDeleteBackup = (backupId: string) => {
-    Modal.confirm({
+    modal.confirm({
       title: '确认删除',
       content: '确定要删除这个备份吗？此操作不可恢复。',
       okText: '确定',

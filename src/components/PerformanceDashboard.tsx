@@ -12,7 +12,6 @@ import {
   DatabaseOutlined
 } from '@ant-design/icons';
 
-const { TabPane } = Tabs;
 
 interface PerformanceMetrics {
   database: {
@@ -451,27 +450,36 @@ export const PerformanceDashboard: React.FC = () => {
           </Space>
         }
       >
-        <Tabs defaultActiveKey="overview">
-          <TabPane tab="系统概览" key="overview">
-            {renderSystemOverview()}
-          </TabPane>
-          
-          <TabPane tab="数据库性能" key="database">
-            {renderDatabasePerformance()}
-          </TabPane>
-          
-          <TabPane tab="慢查询" key="slow-queries">
-            {renderSlowQueries()}
-          </TabPane>
-          
-          <TabPane tab="性能测试" key="performance-tests">
-            {renderPerformanceTests()}
-          </TabPane>
-          
-          <TabPane tab="健康状态" key="health">
-            {renderHealthStatus()}
-          </TabPane>
-        </Tabs>
+        <Tabs 
+          defaultActiveKey="overview"
+          items={[
+            {
+              key: 'overview',
+              label: '系统概览',
+              children: renderSystemOverview()
+            },
+            {
+              key: 'database',
+              label: '数据库性能',
+              children: renderDatabasePerformance()
+            },
+            {
+              key: 'slow-queries',
+              label: '慢查询',
+              children: renderSlowQueries()
+            },
+            {
+              key: 'performance-tests',
+              label: '性能测试',
+              children: renderPerformanceTests()
+            },
+            {
+              key: 'health',
+              label: '健康状态',
+              children: renderHealthStatus()
+            }
+          ]}
+        />
       </Card>
     </div>
   );

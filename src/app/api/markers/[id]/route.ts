@@ -1,34 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
 // Markers functionality removed
 
-// DELETE - 删除标记
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '请先登录' },
-        { status: 401 }
-      );
-    }
+// DELETE - 删除标记 - 需要用户认证
+export const DELETE = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const url = new URL(request.url);
+      const id = url.pathname.split('/').pop() as string;
 
-    // Markers functionality has been removed
-    return NextResponse.json(
-      { error: '标记功能暂时不可用' },
-      { status: 501 }
-    );
-  } catch (error) {
-    console.error('Error deleting marker:', error);
-    return NextResponse.json(
-      { error: '删除标记失败' },
-      { status: 500 }
-    );
-  }
-}
+      // Markers functionality has been removed
+      return ApiResponse.internalError('标记功能暂时不可用');
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Error deleting marker');
+    }
+  }, { requireAuth: true, requireCSRF: true, enableRateLimit: true, allowedMethods: ['DELETE'] }
+)

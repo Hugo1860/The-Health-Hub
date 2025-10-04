@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response'
+import { withSecurity } from '@/lib/secureApiWrapper'
 
 const DATA_DIR = join(process.cwd(), 'data')
 const PLAYLISTS_FILE = join(DATA_DIR, 'playlists.json')
@@ -55,84 +56,59 @@ function generatePlaylistId(): string {
   return 'playlist-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9)
 }
 
-// 获取播放列表列表
-export async function GET(request: NextRequest) {
-  try {
-    const session = await getServerSession()
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      )
+// 获取播放列表列表 - 需要用户认证
+export const GET = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const playlists = await getPlaylists()
+      
+      // 过滤用户可以看到的播放列表（自己的或公开的）
+      const userId = request.headers.get('x-user-id') as string
+      const visiblePlaylists = playlists.filter(playlist => playlist.createdBy === userId || playlist.isPublic)
+      
+      return ApiResponse.success({ playlists: visiblePlaylists })
+      
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Get playlists error')
     }
-    
-    const playlists = await getPlaylists()
-    
-    // 过滤用户可以看到的播放列表（自己的或公开的）
-    const visiblePlaylists = playlists.filter(playlist => 
-      playlist.createdBy === session.user.id || playlist.isPublic
-    )
-    
-    return NextResponse.json({ playlists: visiblePlaylists })
-    
-  } catch (error) {
-    console.error('Get playlists error:', error)
-    return NextResponse.json(
-      { error: '获取播放列表失败' },
-      { status: 500 }
-    )
-  }
-}
+  }, { requireAuth: true, enableRateLimit: true, allowedMethods: ['GET'] }
+)
 
-// 创建播放列表
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession()
-    
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: '未授权访问' },
-        { status: 401 }
-      )
+// 创建播放列表 - 需要用户认证
+export const POST = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const { title, description, isPublic = false } = await request.json()
+      
+      // 验证输入
+      if (!title) {
+        return ApiResponse.badRequest('播放列表标题是必填项', {
+          field: 'title',
+          message: 'Title is required'
+        })
+      }
+      
+      const playlists = await getPlaylists()
+      
+      // 创建新播放列表
+      const userId = request.headers.get('x-user-id') as string
+      const newPlaylist: Playlist = {
+        id: generatePlaylistId(),
+        title,
+        description: description || '',
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+        isPublic,
+        items: []
+      }
+      
+      playlists.push(newPlaylist)
+      await savePlaylists(playlists)
+      
+      return ApiResponse.created(newPlaylist, '播放列表创建成功')
+      
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Create playlist error')
     }
-    
-    const { title, description, isPublic = false } = await request.json()
-    
-    // 验证输入
-    if (!title) {
-      return NextResponse.json(
-        { error: '播放列表标题是必填项' },
-        { status: 400 }
-      )
-    }
-    
-    const playlists = await getPlaylists()
-    
-    // 创建新播放列表
-    const newPlaylist: Playlist = {
-      id: generatePlaylistId(),
-      title,
-      description: description || '',
-      createdBy: session.user.id,
-      createdAt: new Date().toISOString(),
-      isPublic,
-      items: []
-    }
-    
-    playlists.push(newPlaylist)
-    await savePlaylists(playlists)
-    
-    return NextResponse.json({
-      message: '播放列表创建成功',
-      playlist: newPlaylist
-    }, { status: 201 })
-    
-  } catch (error) {
-    console.error('Create playlist error:', error)
-    return NextResponse.json(
-      { error: '创建播放列表失败' },
-      { status: 500 }
-    )
-  }
-}
+  }, { requireAuth: true, requireCSRF: true, enableRateLimit: true, rateLimitMax: 10, rateLimitWindow: 60000, allowedMethods: ['POST'] }
+)

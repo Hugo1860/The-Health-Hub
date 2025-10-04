@@ -30,6 +30,10 @@ import {
 import dayjs from 'dayjs';
 import AntdAdminLayout from '../../../../../components/AntdAdminLayout';
 import { AntdAdminGuard } from '../../../../../components/AntdAdminGuard';
+import { CategorySelector } from '../../../../../components/CategorySelector';
+import { CategoryBreadcrumb } from '../../../../../components/CategoryBreadcrumb';
+import { CategoriesProvider, useCategories } from '../../../../../contexts/CategoriesContextNew';
+import { CategorySelection } from '@/types/category';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -42,23 +46,40 @@ interface AudioFile {
   url: string;
   filename: string;
   uploadDate: string;
-  subject: string;
+  subject?: string; // 兼容性字段
+  categoryId?: string; // 新增：一级分类ID
+  subcategoryId?: string; // 新增：二级分类ID
   tags: string[];
   speaker?: string;
   recordingDate?: string;
   duration?: number;
+  status?: string;
+  coverImage?: string;
   transcription?: string;
+  // 分类信息
+  category?: {
+    id: string;
+    name: string;
+    color?: string;
+    icon?: string;
+  };
+  subcategory?: {
+    id: string;
+    name: string;
+  };
 }
 
 function EditAudioForm() {
   const { id } = useParams();
   const router = useRouter();
   const [form] = Form.useForm();
+  const { categories, loading: categoriesLoading, refreshCategories } = useCategories();
   
   const [audio, setAudio] = useState<AudioFile | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [tagInput, setTagInput] = useState('');
+  const [categorySelection, setCategorySelection] = useState<CategorySelection>({});
 
   useEffect(() => {
     fetchAudio();
@@ -72,9 +93,10 @@ function EditAudioForm() {
       if (!response.ok) {
         throw new Error('获取音频信息失败');
       }
-      const data = await response.json();
+      const result = await response.json();
+      const data = result.audio || result; // 兼容新的API结构
       setAudio(data);
-      
+
       // 设置表单初始值
       form.setFieldsValue({
         title: data.title,
@@ -84,6 +106,12 @@ function EditAudioForm() {
         recordingDate: data.recordingDate ? dayjs(data.recordingDate) : null,
         tags: data.tags || [],
         transcription: data.transcription || ''
+      });
+
+      // 设置分类选择初始值
+      setCategorySelection({
+        categoryId: data.categoryId,
+        subcategoryId: data.subcategoryId
       });
     } catch (error) {
       console.error('获取音频信息失败:', error);
@@ -98,8 +126,19 @@ function EditAudioForm() {
     try {
       const updateData = {
         ...values,
-        recordingDate: values.recordingDate ? values.recordingDate.format('YYYY-MM-DD') : null
+        recordingDate: values.recordingDate ? values.recordingDate.format('YYYY-MM-DD') : null,
+        // 添加新的分类字段
+        categoryId: categorySelection.categoryId,
+        subcategoryId: categorySelection.subcategoryId
       };
+
+      // 兼容性：如果有分类选择，同时设置 subject 字段
+      if (categorySelection.categoryId) {
+        const category = categories.find(c => c.id === categorySelection.categoryId);
+        if (category) {
+          updateData.subject = category.name;
+        }
+      }
 
       const response = await fetch(`/api/admin/simple-audio/${id}`, {
         method: 'PUT',
@@ -217,31 +256,55 @@ function EditAudioForm() {
             {/* 分类信息 */}
             <Card title="分类信息" className="shadow-sm">
               <Row gutter={16}>
-                <Col xs={24} sm={12}>
+                <Col xs={24}>
                   <Form.Item
-                    name="subject"
-                    label="学科分类"
+                    label={
+                      <Space>
+                        <span>分类选择</span>
+                        <Button
+                          type="link"
+                          size="small"
+                          onClick={refreshCategories}
+                          loading={categoriesLoading}
+                        >
+                          刷新
+                        </Button>
+                      </Space>
+                    }
                     rules={[
-                      { required: true, message: '请选择学科分类' }
+                      { 
+                        validator: () => {
+                          if (!categorySelection.categoryId) {
+                            return Promise.reject(new Error('请选择分类'));
+                          }
+                          return Promise.resolve();
+                        }
+                      }
                     ]}
                   >
-                    <Select 
-                      prefix={<BookOutlined />} 
-                      placeholder="请选择学科分类"
-                    >
-                      <Option value="心血管">心血管</Option>
-                      <Option value="神经科">神经科</Option>
-                      <Option value="肿瘤科">肿瘤科</Option>
-                      <Option value="外科">外科</Option>
-                      <Option value="儿科">儿科</Option>
-                      <Option value="妇产科">妇产科</Option>
-                      <Option value="精神科">精神科</Option>
-                      <Option value="影像科">影像科</Option>
-                      <Option value="检验科">检验科</Option>
-                      <Option value="其他">其他</Option>
-                    </Select>
+                    <CategorySelector
+                      value={categorySelection}
+                      onChange={setCategorySelection}
+                      allowEmpty={false}
+                    />
                   </Form.Item>
+
+                  {/* 分类路径显示 */}
+                  {(categorySelection.categoryId || categorySelection.subcategoryId) && (
+                    <div style={{ marginBottom: 16 }}>
+                      <Text type="secondary">当前分类路径：</Text>
+                      <CategoryBreadcrumb
+                        categoryId={categorySelection.categoryId}
+                        subcategoryId={categorySelection.subcategoryId}
+                      />
+                    </div>
+                  )}
+
+                  {/* 兼容模式已移除 - 仅使用新的分类层级选择器 */}
                 </Col>
+              </Row>
+
+              <Row gutter={16}>
                 <Col xs={24} sm={12}>
                   <Form.Item
                     name="recordingDate"
@@ -355,7 +418,9 @@ export default function EditAudioPage() {
   return (
     <AntdAdminGuard>
       <AntdAdminLayout>
-        <EditAudioForm />
+        <CategoriesProvider>
+          <EditAudioForm />
+        </CategoriesProvider>
       </AntdAdminLayout>
     </AntdAdminGuard>
   );

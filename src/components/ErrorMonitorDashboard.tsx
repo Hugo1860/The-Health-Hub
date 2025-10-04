@@ -14,7 +14,7 @@ import { useErrorLogger } from '../lib/errorLogger';
 import type { ErrorLogEntry, PerformanceMetric, UserAction } from '../lib/errorLogger';
 
 const { Title, Text } = Typography;
-const { TabPane } = Tabs;
+// 移除过时的 TabPane 导入
 
 interface ErrorMonitorDashboardProps {
   showControls?: boolean;
@@ -293,38 +293,53 @@ export default function ErrorMonitorDashboard({
       )}
 
       {/* 详细数据表格 */}
-      <Tabs defaultActiveKey="errors">
-        <TabPane tab={`错误日志 (${logs.length})`} key="errors">
-          <Table
-            columns={errorColumns}
-            dataSource={logs}
-            rowKey="id"
-            size="small"
-            scroll={{ y: maxHeight - 200 }}
-            pagination={{ pageSize: 50, showSizeChanger: true }}
-          />
-        </TabPane>
-        <TabPane tab={`性能指标 (${metrics.length})`} key="metrics">
-          <Table
-            columns={metricColumns}
-            dataSource={metrics}
-            rowKey="id"
-            size="small"
-            scroll={{ y: maxHeight - 200 }}
-            pagination={{ pageSize: 50, showSizeChanger: true }}
-          />
-        </TabPane>
-        <TabPane tab={`用户操作 (${actions.length})`} key="actions">
-          <Table
-            columns={actionColumns}
-            dataSource={actions}
-            rowKey="id"
-            size="small"
-            scroll={{ y: maxHeight - 200 }}
-            pagination={{ pageSize: 50, showSizeChanger: true }}
-          />
-        </TabPane>
-      </Tabs>
+      <Tabs 
+        defaultActiveKey="errors"
+        items={[
+          {
+            key: 'errors',
+            label: `错误日志 (${logs.length})`,
+            children: (
+              <Table
+                columns={errorColumns}
+                dataSource={logs}
+                rowKey="id"
+                size="small"
+                scroll={{ y: maxHeight - 200 }}
+                pagination={{ pageSize: 50, showSizeChanger: true }}
+              />
+            )
+          },
+          {
+            key: 'metrics',
+            label: `性能指标 (${metrics.length})`,
+            children: (
+              <Table
+                columns={metricColumns}
+                dataSource={metrics}
+                rowKey="id"
+                size="small"
+                scroll={{ y: maxHeight - 200 }}
+                pagination={{ pageSize: 50, showSizeChanger: true }}
+              />
+            )
+          },
+          {
+            key: 'actions',
+            label: `用户操作 (${actions.length})`,
+            children: (
+              <Table
+                columns={actionColumns}
+                dataSource={actions}
+                rowKey="id"
+                size="small"
+                scroll={{ y: maxHeight - 200 }}
+                pagination={{ pageSize: 50, showSizeChanger: true }}
+              />
+            )
+          }
+        ]}
+      />
     </div>
   );
 }

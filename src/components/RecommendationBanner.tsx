@@ -8,7 +8,7 @@ interface RecommendationBannerProps {
 }
 
 export function RecommendationBanner({ recommendations, bannerStyle }: RecommendationBannerProps) {
-  const { setCurrentAudio } = useAudioStore();
+  const { setCurrentAudio, setIsPlaying } = useAudioStore();
 
   if (recommendations.length === 0) {
     return null;
@@ -18,6 +18,7 @@ export function RecommendationBanner({ recommendations, bannerStyle }: Recommend
 
   const handleAudioSelect = (audio: AudioFile) => {
     setCurrentAudio(audio);
+    setIsPlaying(true);
   };
 
   return (
@@ -26,11 +27,12 @@ export function RecommendationBanner({ recommendations, bannerStyle }: Recommend
       
       {/* 主推荐横幅 */}
       <div 
-        className={`relative rounded-2xl overflow-hidden mb-6 cursor-pointer group ${
-          bannerStyle === 'gradient' 
-            ? 'bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-600' 
-            : 'bg-gray-900'
-        }`}
+        className="relative rounded-2xl overflow-hidden mb-6 cursor-pointer group"
+        style={{
+          background: bannerStyle === 'gradient' 
+            ? 'linear-gradient(135deg, #34c9ff 0%, #6366f1 100%)' 
+            : '#1a1a1a'
+        }}
         onClick={() => handleAudioSelect(featuredAudio)}
       >
         <div className="absolute inset-0 bg-black bg-opacity-20 group-hover:bg-opacity-30 transition-all"></div>
@@ -94,7 +96,10 @@ export function RecommendationBanner({ recommendations, bannerStyle }: Recommend
                 onClick={() => handleAudioSelect(audio)}
               >
                 <div className="flex items-start space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white flex-shrink-0">
+                  <div 
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg, #34c9ff 0%, #6366f1 100%)' }}
+                  >
                     <span className="text-xs">🎙️</span>
                   </div>
                   

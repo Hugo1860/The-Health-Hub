@@ -33,11 +33,15 @@ import {
   PlayCircleOutlined,
   TrophyOutlined,
   ClockCircleOutlined,
-  MenuOutlined
+  MenuOutlined,
+  BookOutlined,
+  TeamOutlined,
+  BellOutlined
 } from '@ant-design/icons';
 import { useAudioStore, AudioFile } from '../store/audioStore';
 import GlobalAudioPlayer from './GlobalAudioPlayer';
 import Logo from './Logo';
+import NotificationCenter from './NotificationCenter';
 import type { MenuProps } from 'antd';
 
 const { Header, Sider, Content } = Layout;
@@ -74,11 +78,18 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
   // 判断是否为移动端
   const isMobile = !screens.md;
 
-  // 获取数据
+  // 延迟获取非关键数据
   useEffect(() => {
+    // 立即获取分类（关键数据）
     fetchCategories();
-    fetchTopCharts();
-    fetchRecentlyPlayed();
+    
+    // 延迟获取排行榜和最近播放（非关键数据）
+    const timer = setTimeout(() => {
+      fetchTopCharts();
+      fetchRecentlyPlayed();
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // 键盘事件处理
@@ -99,24 +110,26 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      // 使用简化的分类API，提高加载速度
+      const response = await fetch('/api/simple-categories');
       if (response.ok) {
         const data = await response.json();
         setCategories(data);
+        return;
       }
     } catch (error) {
       console.error('获取分类失败:', error);
-      // 使用默认分类
-      const defaultCategories: Category[] = [
-        { id: 'cardiology', name: '心血管', color: '#ef4444', icon: '❤️' },
-        { id: 'neurology', name: '神经科', color: '#8b5cf6', icon: '🧠' },
-        { id: 'internal-medicine', name: '内科学', color: '#10b981', icon: '🏥' },
-        { id: 'surgery', name: '外科', color: '#f59e0b', icon: '🔬' },
-        { id: 'pediatrics', name: '儿科', color: '#3b82f6', icon: '👶' },
-        { id: 'other', name: '其他', color: '#6b7280', icon: '📚' },
-      ];
-      setCategories(defaultCategories);
     }
+    
+    // 使用默认分类
+    const defaultCategories: Category[] = [
+      { id: 'cardiology', name: '心血管', color: '#ef4444', icon: '❤️' },
+      { id: 'neurology', name: '神经科', color: '#8b5cf6', icon: '🧠' },
+      { id: 'internal-medicine', name: '内科学', color: '#1890ff', icon: '🏥' },
+      { id: 'surgery', name: '外科', color: '#f59e0b', icon: '🔬' },
+      { id: 'pediatrics', name: '儿科', color: '#3b82f6', icon: '👶' },
+    ];
+    setCategories(defaultCategories);
   };
 
   const fetchTopCharts = async () => {
@@ -162,9 +175,21 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
       label: '播放列表',
       disabled: !session,
     },
+    {
+      key: '/learning',
+      icon: <BookOutlined />,
+      label: '学习中心',
+      disabled: !session,
+    },
+    {
+      key: '/social',
+      icon: <TeamOutlined />,
+      label: '社交',
+      disabled: !session,
+    },
   ];
 
-  // 用户下拉菜单 - 基于角色的动态菜单生成
+  // 用户下拉菜单 - 删除设置按钮，只保留个人资料和退出登录
   const userMenuItems: MenuProps['items'] = session ? [
     {
       key: 'profile',
@@ -172,18 +197,15 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
       label: '个人资料',
       onClick: () => router.push('/profile'),
     },
-    {
-      key: 'settings',
+    // 只有管理员才显示管理后台
+    ...(session.user?.role === 'admin' ? [{
+      key: 'admin',
       icon: <SettingOutlined />,
-      label: session.user?.role === 'admin' ? '管理后台' : '设置',
-      onClick: () => {
-        // 根据用户角色决定导航路径
-        const targetPath = session.user?.role === 'admin' ? '/admin' : '/settings';
-        router.push(targetPath);
-      },
-    },
+      label: '管理后台',
+      onClick: () => router.push('/admin'),
+    }] : []),
     {
-      type: 'divider',
+      type: 'divider' as const,
     },
     {
       key: 'logout',
@@ -372,7 +394,7 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
                       <Badge count={index + 1} size="small">
                         <Avatar 
                           size="small"
-                          style={{ backgroundColor: '#13C2C2' }}
+                          style={{ backgroundColor: '#1890ff' }}
                           icon={<SoundOutlined />}
                         />
                       </Badge>
@@ -426,7 +448,7 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
                     avatar={
                       <Avatar 
                         size="small"
-                        style={{ backgroundColor: '#13C2C2' }}
+                        style={{ backgroundColor: '#1890ff' }}
                         icon={<PlayCircleOutlined />}
                       />
                     }
@@ -508,7 +530,7 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
           closable={false}
           maskClosable={true}
           keyboard={true}
-          destroyOnClose={false}
+          destroyOnHidden={false}
           forceRender={false}
           getContainer={false}
           push={false}
@@ -553,8 +575,8 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: mobileDrawerOpen ? 'rgba(19, 194, 194, 0.1)' : 'transparent',
-                color: mobileDrawerOpen ? '#00B4A6' : '#333',
+                backgroundColor: mobileDrawerOpen ? 'rgba(24, 144, 255, 0.1)' : 'transparent',
+                color: mobileDrawerOpen ? '#1890ff' : '#333',
                 borderRadius: '8px',
                 transition: 'all 0.3s ease',
               }}
@@ -571,8 +593,8 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
               />
             </div>
             
-            {/* 占位元素保持布局平衡 */}
-            <div style={{ width: 40 }} />
+            {/* 通知中心 */}
+            <NotificationCenter />
           </div>
         )}
 
@@ -599,7 +621,7 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
               <Space>
                 <Avatar
                   size={isMobile ? 'default' : 'large'}
-                  style={{ backgroundColor: session ? '#13C2C2' : '#FAAD14' }}
+                  style={{ backgroundColor: session ? '#1890ff' : '#FAAD14' }}
                   icon={<UserOutlined />}
                 >
                   {session?.user?.name?.charAt(0) || session?.user?.email?.charAt(0) || 'G'}
@@ -623,11 +645,11 @@ export default function AntdHomeLayout({ children }: AntdHomeLayoutProps) {
           margin: 0, 
           background: '#F8F9FA',
           minHeight: '100vh',
-          paddingTop: isMobile ? (currentAudio ? 152 : 64) : 0 // 为移动端顶部Logo和播放器留出空间 (64 + 80 + 8)
+          paddingTop: isMobile ? (currentAudio ? 152 : 64) : (currentAudio ? 120 : 0) // 为顶部Logo和播放器留出空间
         }}>
           <div style={{
             padding: isMobile ? 16 : 24,
-            minHeight: isMobile ? (currentAudio ? 'calc(100vh - 152px)' : 'calc(100vh - 64px)') : '100vh',
+            minHeight: isMobile ? (currentAudio ? 'calc(100vh - 152px)' : 'calc(100vh - 64px)') : (currentAudio ? 'calc(100vh - 120px)' : '100vh'),
             background: 'transparent',
           }}>
             {children}

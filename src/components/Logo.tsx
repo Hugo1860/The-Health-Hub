@@ -107,7 +107,7 @@ export default function Logo({
           borderRadius: 8
         }}
         onError={() => setImageError(true)}
-        priority={size === 'large'}
+        priority={size === 'large' || size === 'medium'}
         quality={90}
       />
     </div>

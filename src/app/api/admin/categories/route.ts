@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
+import { ANTD_ADMIN_PERMISSIONS } from '@/hooks/useAntdAdminAuth';
 
 const CATEGORIES_FILE = join(process.cwd(), 'data', 'categories.json');
 
@@ -99,59 +100,18 @@ async function getCategories(): Promise<Category[]> {
   }
 }
 
-// 管理员获取分类列表
-export async function GET(request: NextRequest) {
-  try {
-    console.log('Admin categories API called');
-    
-    // 检查管理员权限
-    const session = await getServerSession(authOptions);
-    console.log('Session:', session);
-    
-    if (!session?.user) {
-      console.log('No session found');
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'UNAUTHORIZED',
-          message: '需要登录才能访问'
-        }
-      }, { status: 401 });
+// 管理员获取分类列表 - 需要管理员权限
+export const GET = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      console.log('Admin categories API called');
+      
+      const categories = await getCategories();
+      
+      return ApiResponse.success(categories);
+      
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error as Error, 'Admin categories API error');
     }
-    
-    const user = session.user as any;
-    console.log('User:', user);
-    
-    const isAdmin = user?.role && ['admin', 'moderator', 'editor'].includes(user.role);
-    console.log('Is admin:', isAdmin, 'Role:', user?.role);
-    
-    if (!isAdmin) {
-      console.log('User is not admin');
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'FORBIDDEN',
-          message: '需要管理员权限'
-        }
-      }, { status: 403 });
-    }
-    
-    const categories = await getCategories();
-    
-    return NextResponse.json({
-      success: true,
-      data: categories
-    });
-    
-  } catch (error) {
-    console.error('Admin categories API error:', error);
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'INTERNAL_ERROR',
-        message: '获取分类列表失败',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }
-    }, { status: 500 });
-  }
-}
+  }, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.MANAGE_CATEGORIES] }
+)

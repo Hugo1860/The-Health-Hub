@@ -10,12 +10,13 @@ interface RecentUpdatesProps {
 }
 
 export function RecentUpdates({ recentAudios, maxItems = 8, showViewAll = true }: RecentUpdatesProps) {
-  const { setCurrentAudio } = useAudioStore();
+  const { setCurrentAudio, setIsPlaying } = useAudioStore();
 
   const displayAudios = recentAudios.slice(0, maxItems);
 
   const handleAudioSelect = (audio: AudioFile) => {
     setCurrentAudio(audio);
+    setIsPlaying(true);
   };
 
   return (

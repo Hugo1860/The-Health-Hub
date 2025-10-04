@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ConfigProvider, App } from 'antd';
 import { usePathname } from 'next/navigation';
-import { antdConfig } from '../lib/antdConfig';
+// 警告抑制将在 useEffect 中处理，避免 hydration 问题
 
 interface AntdProviderProps {
   children: React.ReactNode;
@@ -11,6 +11,36 @@ interface AntdProviderProps {
 
 export default function AntdProvider({ children }: AntdProviderProps) {
   const pathname = usePathname();
+  
+  // 在客户端抑制 Ant Design React 19 兼容性警告
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      const originalError = console.error;
+      const originalWarn = console.warn;
+      
+      console.error = (...args) => {
+        const message = args[0];
+        if (typeof message === 'string' &&
+            (message.includes('[antd: compatible]') ||
+             message.includes('antd v5 support React is 16 ~ 18') ||
+             message.includes('Static function can not consume context like dynamic theme') ||
+             message.includes('Instance created by `useForm` is not connected to any Form element'))) {
+          return; // 忽略 Ant Design 兼容性警告和表单警告
+        }
+        originalError.apply(console, args);
+      };
+      
+      console.warn = (...args) => {
+        const message = args[0];
+        if (typeof message === 'string' &&
+            (message.includes('Instance created by `useForm` is not connected to any Form element') ||
+             message.includes('Forget to pass `form` prop'))) {
+          return; // 忽略 Form 警告
+        }
+        originalWarn.apply(console, args);
+      };
+    }
+  }, []);
   
   // 使用 Ant Design 的页面：管理后台、认证页面、首页、browse页面等
   const shouldUseAntd = pathname?.startsWith('/admin') || 
@@ -105,7 +135,7 @@ export default function AntdProvider({ children }: AntdProviderProps) {
             },
           },
         }}
-        locale={antdConfig.locale}
+        // locale 配置可以在这里添加
       >
         <App>
           {children}

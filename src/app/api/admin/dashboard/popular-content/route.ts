@@ -1,7 +1,7 @@
 // Dashboard 热门内容 API
 
 import { NextRequest } from 'next/server'
-import db from '@/lib/db'
+import { getDatabase } from '@/lib/database'
 import { AdminApiResponseBuilder } from '@/lib/adminApiUtils'
 
 // 热门内容数据接口
@@ -9,7 +9,7 @@ interface PopularContent {
   recentAudios: Array<{
     id: string
     title: string
-    uploadDate: string
+    "uploadDate": string
     plays: number
     duration: number
     speaker?: string
@@ -37,27 +37,28 @@ interface PopularContent {
 // 获取最新音频
 const getRecentAudios = async (limit: number = 10): Promise<PopularContent['recentAudios']> => {
   try {
+    const db = getDatabase()
     const query = `
       SELECT 
         id,
         title,
         description,
-        uploadDate as upload_date,
+        upload_date as "uploadDate",
         0 as plays,
         COALESCE(duration, 0) as duration,
         speaker,
         subject
       FROM audios
-      ORDER BY uploadDate DESC
+      ORDER BY upload_date DESC
       LIMIT ?
     `
     
-    const results = db.prepare(query).all(limit) as any[]
+    const result = await db.query(query, [limit])
+    const results = result.rows
     
     return results.map(row => ({
       id: row.id,
-      title: row.title,
-      uploadDate: row.upload_date,
+      title: row.title, uploadDate: row.uploadDate,
       plays: row.plays,
       duration: row.duration,
       speaker: row.speaker,
@@ -73,6 +74,7 @@ const getRecentAudios = async (limit: number = 10): Promise<PopularContent['rece
 // 获取热门音频（按播放量排序）
 const getPopularAudios = async (limit: number = 10): Promise<PopularContent['popularAudios']> => {
   try {
+    const db = getDatabase()
     const query = `
       SELECT 
         a.id,
@@ -84,21 +86,22 @@ const getPopularAudios = async (limit: number = 10): Promise<PopularContent['pop
         0 as likes,
         0 as rating
       FROM audios a
-      LEFT JOIN comments c ON a.id = c.audioId
+      LEFT JOIN comments c ON a.id = c.audio_id
       GROUP BY a.id, a.title, a.speaker, a.subject
       ORDER BY comments DESC
       LIMIT ?
     `
     
-    const results = db.prepare(query).all(limit) as any[]
+    const result = await db.query(query, [limit])
+    const results = result.rows
     
     return results.map(row => ({
       id: row.id,
       title: row.title,
-      plays: row.plays,
-      likes: row.likes,
-      comments: row.comments,
-      rating: row.rating,
+      plays: Number(row.plays),
+      likes: Number(row.likes),
+      comments: Number(row.comments),
+      rating: Number(row.rating),
       subject: row.subject || '未分类',
       speaker: row.speaker
     }))
@@ -111,6 +114,7 @@ const getPopularAudios = async (limit: number = 10): Promise<PopularContent['pop
 // 获取热门分类
 const getTopCategories = async (limit: number = 8): Promise<PopularContent['topCategories']> => {
   try {
+    const db = getDatabase()
     const query = `
       SELECT 
         subject as category,
@@ -121,18 +125,19 @@ const getTopCategories = async (limit: number = 8): Promise<PopularContent['topC
       WHERE a.subject IS NOT NULL 
         AND a.subject != ''
       GROUP BY subject
-      HAVING audio_count > 0
-      ORDER BY audio_count DESC
+      HAVING COUNT(*) > 0
+      ORDER BY COUNT(*) DESC
       LIMIT ?
     `
     
-    const results = db.prepare(query).all(limit) as any[]
+    const result = await db.query(query, [limit])
+    const results = result.rows
     
     return results.map(row => ({
       category: row.category,
-      audioCount: row.audio_count,
-      totalPlays: row.total_plays,
-      averageRating: row.average_rating
+      audioCount: Number(row.audio_count),
+      totalPlays: Number(row.total_plays),
+      averageRating: Number(row.average_rating)
     }))
   } catch (error) {
     console.error('获取热门分类失败:', error)

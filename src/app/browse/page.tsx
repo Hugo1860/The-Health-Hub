@@ -1,25 +1,18 @@
 import { Suspense } from 'react';
-import ErrorBoundary from '../../components/ErrorBoundary';
-import AntdHomeLayout from '../../components/AntdHomeLayout';
-import { Skeleton } from 'antd';
 import BrowsePageClient from './BrowsePageClient';
 
-const BrowseHeader = () => (
-  <div className="mb-8">
-    <h1 className="text-4xl font-bold text-gray-800">Browse Audio</h1>
-    <p className="text-lg text-gray-500 mt-2">Explore all our audio content by category.</p>
-  </div>
-);
-
-const BrowsePageSkeleton = ({ text }: { text: string }) => (
+const BrowsePageSkeleton = () => (
   <div className="space-y-6">
     <div className="text-center">
-      <Skeleton.Input active style={{ width: 200 }} />
+      <div className="animate-pulse bg-gray-200 h-8 w-48 mx-auto mb-4"></div>
     </div>
-    <Skeleton active paragraph={{ rows: 4 }} />
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {Array.from({ length: 8 }).map((_, i) => (
-        <Skeleton key={i} active />
+        <div key={i} className="animate-pulse">
+          <div className="bg-gray-200 h-48 rounded-lg mb-4"></div>
+          <div className="bg-gray-200 h-4 rounded mb-2"></div>
+          <div className="bg-gray-200 h-3 rounded"></div>
+        </div>
       ))}
     </div>
   </div>
@@ -27,15 +20,10 @@ const BrowsePageSkeleton = ({ text }: { text: string }) => (
 
 export default function BrowsePageWrapper({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
     return (
-        <ErrorBoundary>
-            <AntdHomeLayout>
-                <div className="container mx-auto px-4 py-8">
-                    <BrowseHeader />
-                    <div className="text-center py-8">
-                        <p>浏览功能正在维护中...</p>
-                    </div>
-                </div>
-            </AntdHomeLayout>
-        </ErrorBoundary>
+        <div className="container mx-auto px-4 py-8">
+            <Suspense fallback={<BrowsePageSkeleton />}>
+                <BrowsePageClient searchParams={searchParams} />
+            </Suspense>
+        </div>
     );
 }

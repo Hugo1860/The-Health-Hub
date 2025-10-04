@@ -1,83 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { getQuestionWithAnswers, deleteQuestion, readQuestions } from '@/lib/questions';
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
 
-// GET - 获取单个问题详情
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-    const question = getQuestionWithAnswers(params.id);
-    
-    if (!question) {
-      return NextResponse.json(
-        { error: '问题不存在' },
-        { status: 404 }
-      );
+// GET - 获取单个问题详情 - 公开访问
+export const GET = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const url = new URL(request.url);
+      const id = url.pathname.split('/').pop() as string;
+      const question = getQuestionWithAnswers(id);
+      
+      if (!question) {
+        return ApiResponse.notFound('问题不存在');
+      }
+
+      return ApiResponse.success(question);
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Error fetching question');
     }
+  }, { requireAuth: false, enableRateLimit: true, allowedMethods: ['GET'] }
+);
 
-    return NextResponse.json(question);
-  } catch (error) {
-    console.error('Error fetching question:', error);
-    return NextResponse.json(
-      { error: '获取问题失败' },
-      { status: 500 }
-    );
-  }
-}
+// DELETE - 删除问题 - 需要用户认证
+export const DELETE = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const url = new URL(request.url);
+      const id = url.pathname.split('/').pop() as string;
+      
+      const questions = readQuestions();
+      const question = questions.find(q => q.id === id);
+      
+      if (!question) {
+        return ApiResponse.notFound('问题不存在');
+      }
+      
+      // 只有问题作者或管理员可以删除
+      const userId = request.headers.get('x-user-id') as string;
+      const userRole = (request.headers.get('x-user-role') || '').toLowerCase();
+      if (question.userId !== userId && userRole !== 'admin') {
+        return ApiResponse.forbidden('无权限删除此问题');
+      }
 
-// DELETE - 删除问题
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: '请先登录' },
-        { status: 401 }
-      );
+      const success = deleteQuestion(id);
+      
+      if (!success) {
+        return ApiResponse.internalError('删除问题失败');
+      }
+
+      return ApiResponse.success(null, '问题已删除');
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Error deleting question');
     }
-
-    const questions = readQuestions();
-    const question = questions.find(q => q.id === params.id);
-    
-    if (!question) {
-      return NextResponse.json(
-        { error: '问题不存在' },
-        { status: 404 }
-      );
-    }
-    
-    // 只有问题作者或管理员可以删除
-    if (question.userId !== session.user.id && session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: '无权限删除此问题' },
-        { status: 403 }
-      );
-    }
-
-    const success = deleteQuestion(params.id);
-    
-    if (!success) {
-      return NextResponse.json(
-        { error: '删除问题失败' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ message: '问题已删除' });
-  } catch (error) {
-    console.error('Error deleting question:', error);
-    return NextResponse.json(
-      { error: '删除问题失败' },
-      { status: 500 }
-    );
-  }
-}
+  }, { requireAuth: true, requireCSRF: true, enableRateLimit: true, allowedMethods: ['DELETE'] }
+);

@@ -1,96 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { updateRelatedResource, deleteRelatedResource, getRelatedResources } from '@/lib/related-resources';
+import { ApiResponse, DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
+import { ANTD_ADMIN_PERMISSIONS } from '@/hooks/useAntdAdminAuth';
 
-export async function PUT(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+// PUT - 更新相关资源 - 需要管理员权限
+export const PUT = withSecurity(
+  async (request: NextRequest, ) => {
+    try {
+      const requestUrl = new URL(request.url);
+      const id = requestUrl.pathname.split('/').pop() as string;
+      const body = await request.json();
+      const { title, url, type, description } = body;
+
+      const updatedResource = updateRelatedResource(id, {
+        title,
+        url,
+        type,
+        description,
+      });
+
+      if (!updatedResource) {
+        return ApiResponse.notFound('Related resource not found');
+      }
+
+      return ApiResponse.success(updatedResource);
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Error updating related resource');
     }
+  }, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.MANAGE_RESOURCES], requireCSRF: true, enableRateLimit: true, allowedMethods: ['PUT'] }
+);
 
-    // Check if user is admin
-    if (session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
+// DELETE - 删除相关资源 - 需要管理员权限
+export const DELETE = withSecurity(
+  async (request: NextRequest) => {
+    try {
+      const url = new URL(request.url);
+      const id = url.pathname.split('/').pop() as string;
+      const success = deleteRelatedResource(id);
+
+      if (!success) {
+        return ApiResponse.notFound('Related resource not found');
+      }
+
+      return ApiResponse.success(null, 'Related resource deleted successfully');
+    } catch (error) {
+      return DatabaseErrorHandler.handle(error, 'Error deleting related resource');
     }
-
-    const body = await request.json();
-    const { title, url, type, description } = body;
-
-    const updatedResource = updateRelatedResource(params.id, {
-      title,
-      url,
-      type,
-      description,
-    });
-
-    if (!updatedResource) {
-      return NextResponse.json(
-        { error: 'Related resource not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(updatedResource);
-  } catch (error) {
-    console.error('Error updating related resource:', error);
-    return NextResponse.json(
-      { error: 'Failed to update related resource' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  try {
-    const params = await context.params;
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Check if user is admin
-    if (session.user.role !== 'admin') {
-      return NextResponse.json(
-        { error: 'Admin access required' },
-        { status: 403 }
-      );
-    }
-
-    const success = deleteRelatedResource(params.id);
-
-    if (!success) {
-      return NextResponse.json(
-        { error: 'Related resource not found' },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ message: 'Related resource deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting related resource:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete related resource' },
-      { status: 500 }
-    );
-  }
-}
+  }, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.MANAGE_RESOURCES], requireCSRF: true, enableRateLimit: true, allowedMethods: ['DELETE'] }
+);

@@ -1,7 +1,7 @@
 import { readFile, stat } from 'fs/promises';
 import { createReadStream as createFileStream } from 'fs';
 import { join } from 'path';
-import { optimizedDb } from './OptimizedDatabase';
+import { db } from './database';
 
 export interface AudioQuality {
   bitrate: number;

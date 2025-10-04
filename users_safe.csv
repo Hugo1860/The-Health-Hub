@@ -1,0 +1,4 @@
+id,username,email,status,pass_prefix,hash_len
+u_admin,admin,admin@example.com,active,$2b$12$,60
+user-1753372657572-uydjcc4uh,hugo,dajiawa@gmail.com,active,$2b$12$,60
+user-1753408717107-5x6uioj68,chkd,chkd@qq.com,active,$2b$12$,60

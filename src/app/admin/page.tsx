@@ -33,6 +33,7 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import ApiErrorHandler from '../../components/ApiErrorHandler';
 import { useClientMounted } from '../../hooks/useClientMounted';
 import { useApiState } from '../../hooks/useApiState';
+import { useSession } from 'next-auth/react';
 
 const { Title, Text } = Typography;
 
@@ -104,6 +105,7 @@ interface PopularContent {
 
 function AdminDashboard() {
   const hasMounted = useClientMounted();
+  const { data: session, status } = useSession();
   
   // 使用新的 API 状态管理
   const statsApi = useApiState<DashboardStats>();
@@ -117,20 +119,52 @@ function AdminDashboard() {
   const loading = statsApi.loading || activitiesApi.loading || contentApi.loading;
   const error = statsApi.error || activitiesApi.error || contentApi.error;
   const [refreshing, setRefreshing] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
+
+    if (status === 'authenticated' && session?.user?.id) {
+      // 添加500ms防抖，避免频繁请求
+      timeoutId = setTimeout(() => {
+        if (isMounted) {
+          fetchDashboardData();
+        }
+      }, 500);
+    }
+
+    return () => {
+      isMounted = false;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [status, session?.user?.id]);
 
   const fetchDashboardData = async () => {
+    // 防止并发请求
+    if (isFetching) {
+      console.log('已有请求进行中，跳过本次请求');
+      return;
+    }
+
+    setIsFetching(true);
     setRefreshing(true);
     
     try {
       // 并行获取所有dashboard数据
+      const userId = (session?.user as any)?.id || (window as any).CURRENT_USER_ID || '';
+      const userRole = (session as any)?.user?.role || (window as any).CURRENT_USER_ROLE || '';
+
       await Promise.all([
         statsApi.execute(async () => {
           const response = await fetch('/api/admin/dashboard/stats', {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'x-user-id': userId,
+              'x-user-role': userRole
+            }
           });
           
           if (!response.ok) {
@@ -147,7 +181,11 @@ function AdminDashboard() {
         
         activitiesApi.execute(async () => {
           const response = await fetch('/api/admin/dashboard/recent-activity?pageSize=10', {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'x-user-id': userId,
+              'x-user-role': userRole
+            }
           });
           
           if (!response.ok) {
@@ -164,7 +202,11 @@ function AdminDashboard() {
         
         contentApi.execute(async () => {
           const response = await fetch('/api/admin/dashboard/popular-content?recentLimit=5&popularLimit=5', {
-            credentials: 'include'
+            credentials: 'include',
+            headers: {
+              'x-user-id': userId,
+              'x-user-role': userRole
+            }
           });
           
           if (!response.ok) {
@@ -183,6 +225,7 @@ function AdminDashboard() {
       console.error('获取仪表盘数据失败:', error);
     } finally {
       setRefreshing(false);
+      setIsFetching(false);
     }
   };
 
@@ -220,10 +263,10 @@ function AdminDashboard() {
         }}>
           <Row justify="space-between" align="middle">
             <Col>
-              <Title level={2} style={{ color: 'white', margin: 0 }}>
+              <Title level={2} style={{ color: 'black', margin: 0 }}>
                 欢迎来到管理后台！
               </Title>
-              <Text style={{ color: 'rgba(255,255,255,0.8)' }}>
+              <Text style={{ color: 'black' }}>
                 今天是美好的一天，让我们开始工作吧
               </Text>
             </Col>
@@ -409,14 +452,32 @@ function AdminDashboard() {
                 <List
                   loading={loading}
                   dataSource={popularContent?.recentAudios}
-                  renderItem={(audio) => (
+                  renderItem={(audio: any) => (
                     <List.Item>
                       <List.Item.Meta
                         avatar={
-                          <Avatar 
-                            style={{ backgroundColor: '#1890ff' }}
-                            icon={<SoundOutlined />}
-                          />
+                          audio.coverImage && audio.coverImage.trim() !== '' ? (
+                            <Avatar 
+                              src={audio.coverImage}
+                              size={48}
+                              style={{ 
+                                width: 48, 
+                                height: 48, 
+                                borderRadius: 8,
+                                objectFit: 'cover'
+                              }}
+                            />
+                          ) : (
+                            <Avatar 
+                              style={{ 
+                                backgroundColor: '#1890ff',
+                                width: 48, 
+                                height: 48, 
+                                borderRadius: 8
+                              }}
+                              icon={<SoundOutlined />}
+                            />
+                          )
                         }
                         title={audio.title}
                         description={
@@ -456,17 +517,51 @@ function AdminDashboard() {
                 <List
                   loading={loading}
                   dataSource={popularContent?.popularAudios}
-                  renderItem={(audio, index) => (
+                  renderItem={(audio: any, index) => (
                     <List.Item>
                       <List.Item.Meta
                         avatar={
-                          <Avatar 
-                            style={{ 
-                              backgroundColor: index === 0 ? '#f5222d' : index === 1 ? '#fa8c16' : '#52c41a'
-                            }}
-                          >
-                            {index + 1}
-                          </Avatar>
+                          <div style={{ position: 'relative' }}>
+                            {audio.coverImage && audio.coverImage.trim() !== '' ? (
+                              <Avatar 
+                                src={audio.coverImage}
+                                size={48}
+                                style={{ 
+                                  width: 48, 
+                                  height: 48, 
+                                  borderRadius: 8,
+                                  objectFit: 'cover'
+                                }}
+                              />
+                            ) : (
+                              <Avatar 
+                                style={{ 
+                                  backgroundColor: '#722ed1',
+                                  width: 48, 
+                                  height: 48, 
+                                  borderRadius: 8
+                                }}
+                                icon={<SoundOutlined />}
+                              />
+                            )}
+                            <div style={{
+                              position: 'absolute',
+                              top: -4,
+                              right: -4,
+                              width: 20,
+                              height: 20,
+                              borderRadius: '50%',
+                              backgroundColor: index === 0 ? '#f5222d' : index === 1 ? '#fa8c16' : '#52c41a',
+                              color: 'white',
+                              fontSize: 12,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 'bold'
+                            }}>
+                              {index + 1}
+                            </div>
+                          </div>
                         }
                         title={audio.title}
                         description={

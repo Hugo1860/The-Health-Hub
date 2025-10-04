@@ -1,0 +1,39 @@
+version: '3.9'
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: health-hub-app:latest
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL:-mysql://root:example@db:3306/health_hub}
+      - DB_DRIVER=mysql
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-changeme}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    networks:
+      - appnet
+
+  db:
+    image: mysql:8
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-example}
+      - MYSQL_DATABASE=health_hub
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - appnet
+
+volumes:
+  db_data:
+
+networks:
+  appnet:
+    driver: bridge
+

@@ -75,5 +75,27 @@
     "id": "1753770623179",
     "createdAt": "2025-07-29T06:30:23.179Z",
     "isRead": false
+  },
+  {
+    "userId": "user-1753372657572-uydjcc4uh",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《护理标准发展趋势》已发布",
+    "relatedId": "1755476496454",
+    "relatedType": "audio",
+    "id": "1755476496456",
+    "createdAt": "2025-08-18T00:21:36.456Z",
+    "isRead": false
+  },
+  {
+    "userId": "user-1753372657572-uydjcc4uh",
+    "type": "new_audio",
+    "title": "新音频发布",
+    "message": "新音频《1111111》已发布",
+    "relatedId": "1755477578173",
+    "relatedType": "audio",
+    "id": "1755477578176",
+    "createdAt": "2025-08-18T00:39:38.176Z",
+    "isRead": false
   }
 ]

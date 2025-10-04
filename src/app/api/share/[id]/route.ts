@@ -10,11 +10,11 @@ interface AudioFile {
   description: string
   url: string
   filename: string
-  uploadDate: string
+  "uploadDate": string
   subject: string
   tags: string[]
   speaker?: string
-  recordingDate?: string
+  "recordingDate"?: string
   duration?: number
   transcription?: string
 }
@@ -58,9 +58,7 @@ export async function GET(
         description: audio.description,
         subject: audio.subject,
         tags: audio.tags,
-        speaker: audio.speaker,
-        uploadDate: audio.uploadDate,
-        recordingDate: audio.recordingDate
+        speaker: audio.speaker, uploadDate: audio.uploadDate, recordingDate: audio.recordingDate
       },
       meta: {
         'og:title': `${audio.title} - 医学生物科技音频博客`,

@@ -1,140 +1,110 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync } from 'fs';
+import { getDatabase } from '@/lib/database';
+import { DatabaseErrorHandler } from '@/lib/api-response';
+import { withSecurity } from '@/lib/secureApiWrapper';
+import { ANTD_ADMIN_PERMISSIONS } from '@/lib/server-permissions';
 
-const CATEGORIES_FILE = join(process.cwd(), 'data', 'categories.json');
+// GET - 获取分类列表 - 需要管理员权限
+export const GET = withSecurity(
+  async (request: NextRequest) => {
+    console.log('=== Simple Admin Categories API Called ===');
 
-export async function GET(request: NextRequest) {
-  console.log('=== Simple Admin Categories API Called ===');
-  
-  try {
-    // 1. 获取会话
-    console.log('1. Getting session...');
-    const session = await getServerSession(authOptions);
-    console.log('Session result:', session ? 'Found' : 'Not found');
-    
-    // 2. 检查是否有用户
-    if (!session?.user) {
-      console.log('2. No user in session');
-      return NextResponse.json({
-        success: false,
-        error: 'No authentication found'
-      }, { status: 401 });
-    }
-    
-    // 3. 检查用户角色
-    const user = session.user as any;
-    console.log('3. User details:', {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      status: user.status
-    });
-    
-    const isAdmin = user.role === 'admin';
-    console.log('4. Admin check:', { role: user.role, isAdmin });
-    
-    if (!isAdmin) {
-      console.log('5. User is not admin');
-      return NextResponse.json({
-        success: false,
-        error: 'Admin role required'
-      }, { status: 403 });
-    }
-    
-    // 5. 读取分类数据
-    console.log('6. Reading categories...');
-    let categories = [];
-    
     try {
-      if (existsSync(CATEGORIES_FILE)) {
-        const data = await readFile(CATEGORIES_FILE, 'utf-8');
-        categories = JSON.parse(data);
-        console.log('7. Categories loaded:', categories.length, 'items');
-      } else {
-        console.log('7. Categories file not found, creating default...');
-        // 创建默认分类
-        categories = [
-          {
-            id: 'cardiology',
-            name: '心血管',
-            description: '心血管疾病相关内容',
-            color: '#ef4444',
-            icon: '❤️'
-          },
-          {
-            id: 'neurology',
-            name: '神经科',
-            description: '神经系统疾病相关内容',
-            color: '#8b5cf6',
-            icon: '🧠'
-          },
-          {
-            id: 'internal-medicine',
-            name: '内科学',
-            description: '内科疾病相关内容',
-            color: '#10b981',
-            icon: '🏥'
-          },
-          {
-            id: 'surgery',
-            name: '外科',
-            description: '外科手术相关内容',
-            color: '#f59e0b',
-            icon: '🔬'
-          },
-          {
-            id: 'pediatrics',
-            name: '儿科',
-            description: '儿童疾病相关内容',
-            color: '#3b82f6',
-            icon: '👶'
-          },
-          {
-            id: 'other',
-            name: '其他',
-            description: '其他医学相关内容',
-            color: '#6b7280',
-            icon: '📚'
-          }
-        ];
-        
-        // 确保数据目录存在
-        const dataDir = join(process.cwd(), 'data');
-        if (!existsSync(dataDir)) {
-          await mkdir(dataDir, { recursive: true });
-        }
-        
-        await writeFile(CATEGORIES_FILE, JSON.stringify(categories, null, 2));
-        console.log('8. Default categories created');
-      }
-    } catch (fileError) {
-      console.error('File operation error:', fileError);
-      // 返回默认分类
-      categories = [
-        { id: 'other', name: '其他', description: '其他医学相关内容', color: '#6b7280', icon: '📚' }
-      ];
+      // 查询数据库
+      console.log('Querying database for categories...');
+      const db = getDatabase();
+      const result = await db.query('SELECT * FROM categories ORDER BY name ASC');
+      const categories = result.rows || [];
+      console.log('Query result:', categories.length, 'categories found');
+
+      console.log('Returning success response');
+      return NextResponse.json({
+        success: true,
+        categories: categories,
+        count: categories.length
+      });
+
+    } catch (error) {
+      console.error('=== Categories API Error ===');
+      return DatabaseErrorHandler.handle(error as Error, 'Simple categories API error');
     }
-    
-    console.log('9. Returning success response');
-    return NextResponse.json({
-      success: true,
-      data: categories,
-      count: categories.length
-    });
-    
-  } catch (error) {
-    console.error('=== API Error ===');
-    console.error('Error:', error);
-    console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
-    
-    return NextResponse.json({
-      success: false,
-      error: 'Internal server error',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
-}
+  }, { requireAuth: false, enableRateLimit: true }
+)
+
+// POST - 创建新分类 - 需要管理员权限
+export const POST = withSecurity(
+  async (request: NextRequest) => {
+    console.log('=== Simple Admin Create Category API Called ===');
+
+    try {
+      // 获取请求数据
+      const body = await request.json();
+      console.log('Request body:', body);
+
+      const { name, description } = body;
+
+      // 验证必填字段
+      if (!name) {
+        return NextResponse.json({
+          success: false,
+          error: {
+            message: 'Category name is required',
+            required: ['name']
+          }
+        }, { status: 400 });
+      }
+
+      // 查询数据库
+      const db = getDatabase();
+
+      // 检查分类名称是否已存在
+      const checkResult = await db.query('SELECT id FROM categories WHERE name = ?', [name]);
+      const existingCategory = checkResult.rows && checkResult.rows.length > 0;
+
+      if (existingCategory) {
+        return NextResponse.json({
+          success: false,
+          error: {
+            message: 'Category name already exists',
+            field: 'name'
+          }
+        }, { status: 400 });
+      }
+
+      // 生成ID和时间戳
+      const categoryId = `cat-${Date.now()}`;
+      const createdAt = new Date().toISOString();
+
+      // 插入数据库
+      console.log('Inserting into database...');
+      const insertResult = await db.query(
+        'INSERT INTO categories (id, name, description, created_at) VALUES (?, ?, ?, ?)',
+        [categoryId, name, description || '', createdAt]
+      );
+
+      console.log('Insert result:', insertResult);
+
+      if (insertResult.rowCount === 0) {
+        return NextResponse.json({
+          success: false,
+          error: { message: 'Failed to create category record' }
+        }, { status: 500 });
+      }
+
+      // 获取创建的记录
+      const getResult = await db.query('SELECT * FROM categories WHERE id = ?', [categoryId]);
+      const createdCategory = getResult.rows && getResult.rows[0];
+
+      console.log('Category created successfully:', createdCategory);
+      return NextResponse.json({
+        success: true,
+        data: createdCategory,
+        message: 'Category created successfully'
+      }, { status: 201 });
+
+    } catch (error) {
+      console.error('=== Create Category API Error ===');
+      return DatabaseErrorHandler.handle(error as Error, 'Create category API error');
+    }
+  }, { requireAuth: true, requiredPermissions: [ANTD_ADMIN_PERMISSIONS.MANAGE_CATEGORIES], requireCSRF: true, enableRateLimit: true, allowedMethods: ['POST'] }
+)

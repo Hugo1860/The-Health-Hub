@@ -1,92 +1,119 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Table, 
   Card, 
+  Table, 
   Button, 
   Space, 
   Tag, 
-  Modal, 
-  Form, 
-  Input, 
-  Select, 
+  Avatar, 
+  Typography, 
+  Input,
+  Select,
+  DatePicker,
+  Modal,
+  Form,
   message,
   Popconfirm,
-  Avatar,
-  Typography,
-  Row,
-  Col,
-  Statistic
+  Tooltip,
+  App
 } from 'antd';
 import {
   UserOutlined,
+  SearchOutlined,
+  PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  PlusOutlined,
-  SearchOutlined,
-  ExclamationCircleOutlined
+  ReloadOutlined,
+  ExportOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
 import AntdAdminLayout from '../../../components/AntdAdminLayout';
-import { useAntdPermissionCheck, ANTD_ADMIN_PERMISSIONS } from '@/hooks/useAntdAdminAuth';
-import { AntdAdminGuard } from '@/components/AntdAdminGuard';
+import { AntdAdminGuard } from '../../../components/AntdAdminGuard';
+import SafeTimeDisplay from '../../../components/SafeTimeDisplay';
 
 const { Title, Text } = Typography;
+const { Search } = Input;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
 
 interface User {
   id: string;
-  username: string;
   email: string;
-  role: 'user' | 'admin';
-  status: 'active' | 'inactive' | 'banned';
+  username?: string;
+  role: string;
+  status: string;
   createdAt: string;
-  lastLogin?: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+  profile?: {
+    name?: string;
+    avatar?: string;
+    phone?: string;
+  };
 }
 
-function AntdUsersManagement() {
-  const { hasPermission } = useAntdPermissionCheck();
+function UsersManagement() {
+  const { message } = App.useApp();
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [form] = Form.useForm();
 
-  // 获取用户数据
   useEffect(() => {
     fetchUsers();
   }, []);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // 构建查询参数
-      const params = new URLSearchParams({
-        page: '1',
-        pageSize: '20'
+      console.log('=== 开始获取用户列表 ===');
+      const response = await fetch('/api/admin/users-simple', {
+        credentials: 'include',
+        headers: {
+          'x-user-id': (window as any).CURRENT_USER_ID || '',
+          'x-user-role': (window as any).CURRENT_USER_ROLE || ''
+        }
       });
       
-      if (searchText) {
-        params.append('query', searchText);
-      }
+      console.log('API响应状态:', response.status);
+      console.log('API响应头:', Object.fromEntries(response.headers.entries()));
       
-      const response = await fetch(`/api/admin/users?${params.toString()}`, {
-        credentials: 'include'
-      });
+      const data = await response.json();
+      console.log('API响应数据:', data);
       
       if (!response.ok) {
-        throw new Error('获取用户列表失败');
+        console.error('API请求失败:', response.status, data);
+        throw new Error(`获取用户列表失败: ${response.status} - ${data.error?.message || '未知错误'}`);
       }
       
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error?.message || '获取用户列表失败');
+      if (data.success) {
+        const payload = data.data;
+        const list = Array.isArray(payload) ? payload : (payload?.users || []);
+        console.log('用户数据(list):', list);
+        const normalized = (list as any[]).map((u) => ({
+          id: String(u.id),
+          email: u.email,
+          username: u.username,
+          role: u.role,
+          status: u.status,
+          createdAt: u.createdAt || u.created_at || u.createdAT || null,
+          updatedAt: u.updatedAt || u.updated_at || null,
+          lastLoginAt: u.lastLoginAt || u.last_login || u.lastLogin || null,
+          profile: u.profile || undefined,
+        }));
+        setUsers(normalized as User[]);
+        message.success(`成功获取 ${normalized.length} 个用户`);
+      } else {
+        console.error('API返回失败:', data);
+        throw new Error(data.error?.message || '获取用户列表失败');
       }
-      
-      setUsers(result.data);
     } catch (error) {
       console.error('获取用户列表失败:', error);
       message.error(error instanceof Error ? error.message : '获取用户列表失败');
@@ -95,372 +122,443 @@ function AntdUsersManagement() {
     }
   };
 
-  // 搜索用户
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchUsers();
-    }, 500); // 防抖处理
-    
-    return () => clearTimeout(timer);
-  }, [searchText]);
-
-  // 表格列定义
-  const columns = [
-    {
-      title: '用户',
-      dataIndex: 'username',
-      key: 'username',
-      render: (text: string, record: User) => (
-        <Space>
-          <Avatar 
-            style={{ backgroundColor: record.role === 'admin' ? '#f56a00' : '#87d068' }}
-            icon={<UserOutlined />}
-          >
-            {text.charAt(0)}
-          </Avatar>
-          <div>
-            <div><Text strong>{text}</Text></div>
-            <div><Text type="secondary" style={{ fontSize: '12px' }}>{record.email}</Text></div>
-          </div>
-        </Space>
-      ),
-      filterable: true,
-    },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      key: 'role',
-      render: (role: string) => (
-        <Tag color={role === 'admin' ? 'red' : 'blue'}>
-          {role === 'admin' ? '管理员' : '普通用户'}
-        </Tag>
-      ),
-      filters: [
-        { text: '管理员', value: 'admin' },
-        { text: '普通用户', value: 'user' },
-      ],
-      onFilter: (value: any, record: User) => record.role === value,
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status: string) => {
-        const statusConfig = {
-          active: { color: 'green', text: '活跃' },
-          inactive: { color: 'orange', text: '非活跃' },
-          banned: { color: 'red', text: '已封禁' },
-        };
-        const config = statusConfig[status as keyof typeof statusConfig];
-        return <Tag color={config.color}>{config.text}</Tag>;
-      },
-      filters: [
-        { text: '活跃', value: 'active' },
-        { text: '非活跃', value: 'inactive' },
-        { text: '已封禁', value: 'banned' },
-      ],
-      onFilter: (value: any, record: User) => record.status === value,
-    },
-    {
-      title: '注册时间',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
-      sorter: (a: User, b: User) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-    },
-    {
-      title: '最后登录',
-      dataIndex: 'lastLogin',
-      key: 'lastLogin',
-      render: (date: string) => date || '从未登录',
-      sorter: (a: User, b: User) => {
-        if (!a.lastLogin) return -1;
-        if (!b.lastLogin) return 1;
-        return new Date(a.lastLogin).getTime() - new Date(b.lastLogin).getTime();
-      },
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      render: (_: any, record: User) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-            disabled={!hasPermission(ANTD_ADMIN_PERMISSIONS.UPDATE_USER)}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定要删除这个用户吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-            disabled={!hasPermission(ANTD_ADMIN_PERMISSIONS.DELETE_USER)}
-          >
-            <Button
-              type="link"
-              danger
-              icon={<DeleteOutlined />}
-              disabled={!hasPermission(ANTD_ADMIN_PERMISSIONS.DELETE_USER)}
-            >
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
-  // 处理编辑用户
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
-    form.setFieldsValue(user);
-    setEditModalVisible(true);
+  const handleSearch = (value: string) => {
+    setSearchText(value);
   };
 
-  // 处理删除用户
+  const handleRoleFilter = (value: string) => {
+    setSelectedRole(value);
+  };
+
+  const handleStatusFilter = (value: string) => {
+    setSelectedStatus(value);
+  };
+
+  const handleEdit = (user: User) => {
+    setEditingUser(user);
+    form.setFieldsValue({
+      email: user.email,
+      username: user.username,
+      role: user.role,
+      status: user.status,
+      name: user.profile?.name,
+      phone: user.profile?.phone,
+    });
+    setIsModalVisible(true);
+  };
+
   const handleDelete = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/api/admin/users-simple/${userId}`, {
         method: 'DELETE',
-        credentials: 'include'
+        credentials: 'include',
+        headers: {
+          'x-user-id': (window as any).CURRENT_USER_ID || '',
+          'x-user-role': (window as any).CURRENT_USER_ROLE || ''
+        }
       });
       
       if (!response.ok) {
-        throw new Error('删除用户失败');
+        throw new Error(`删除用户失败: ${response.status}`);
       }
       
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error?.message || '删除用户失败');
+      const data = await response.json();
+      if (data.success) {
+        message.success('用户删除成功');
+        fetchUsers();
+      } else {
+        throw new Error(data.error?.message || '删除用户失败');
       }
-      
-      message.success('用户删除成功');
-      fetchUsers(); // 重新获取用户列表
     } catch (error) {
       console.error('删除用户失败:', error);
       message.error(error instanceof Error ? error.message : '删除用户失败');
     }
   };
 
-  // 处理保存编辑
-  const handleSave = async () => {
+  const handleModalOk = async () => {
     try {
       const values = await form.validateFields();
+      const url = editingUser 
+        ? `/api/admin/users-simple/${editingUser.id}`
+        : '/api/admin/users-simple';
       
-      if (!editingUser) return;
-      
-      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
-        method: 'PUT',
+      const response = await fetch(url, {
+        method: editingUser ? 'PUT' : 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-user-id': (window as any).CURRENT_USER_ID || '',
+          'x-user-role': (window as any).CURRENT_USER_ROLE || ''
         },
         credentials: 'include',
-        body: JSON.stringify(values)
+        body: JSON.stringify(values),
       });
       
       if (!response.ok) {
-        throw new Error('更新用户失败');
+        throw new Error(`${editingUser ? '更新' : '创建'}用户失败: ${response.status}`);
       }
       
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.error?.message || '更新用户失败');
+      const data = await response.json();
+      if (data.success) {
+        message.success(`用户${editingUser ? '更新' : '创建'}成功`);
+        setIsModalVisible(false);
+        setEditingUser(null);
+        form.resetFields();
+        fetchUsers();
+      } else {
+        throw new Error(data.error?.message || `${editingUser ? '更新' : '创建'}用户失败`);
       }
-      
-      message.success('用户信息更新成功');
-      setEditModalVisible(false);
-      setEditingUser(null);
-      form.resetFields();
-      fetchUsers(); // 重新获取用户列表
     } catch (error) {
-      console.error('更新用户失败:', error);
-      message.error(error instanceof Error ? error.message : '更新用户失败');
+      console.error('操作失败:', error);
+      message.error(error instanceof Error ? error.message : '操作失败');
+    }
+  };
+
+  const handleModalCancel = () => {
+    setIsModalVisible(false);
+    setEditingUser(null);
+    form.resetFields();
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'red';
+      case 'moderator': return 'orange';
+      case 'editor': return 'blue';
+      case 'user': return 'green';
+      default: return 'default';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'green';
+      case 'inactive': return 'orange';
+      case 'banned': return 'red';
+      case 'pending': return 'blue';
+      default: return 'default';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'active': return '活跃';
+      case 'inactive': return '非活跃';
+      case 'banned': return '已封禁';
+      case 'pending': return '待审核';
+      default: return status;
+    }
+  };
+
+  const getRoleText = (role: string) => {
+    switch (role) {
+      case 'admin': return '管理员';
+      case 'moderator': return '版主';
+      case 'editor': return '编辑';
+      case 'user': return '用户';
+      default: return role;
     }
   };
 
   // 过滤用户数据
-  const filteredUsers = users.filter(user =>
-    user.username.toLowerCase().includes(searchText.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = !searchText || 
+      user.email.toLowerCase().includes(searchText.toLowerCase()) ||
+      user.username?.toLowerCase().includes(searchText.toLowerCase()) ||
+      user.profile?.name?.toLowerCase().includes(searchText.toLowerCase());
+    
+    const matchesRole = !selectedRole || user.role === selectedRole;
+    const matchesStatus = !selectedStatus || user.status === selectedStatus;
+    
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
-  // 统计数据
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === 'active').length,
-    admins: users.filter(u => u.role === 'admin').length,
-    banned: users.filter(u => u.status === 'banned').length,
-  };
-
-  if (!hasPermission(ANTD_ADMIN_PERMISSIONS.VIEW_USERS)) {
-    return (
-      <AntdAdminLayout>
-        <Card>
-          <div style={{ textAlign: 'center', padding: '50px' }}>
-            <ExclamationCircleOutlined style={{ fontSize: '48px', color: '#faad14' }} />
-            <Title level={3}>权限不足</Title>
-            <Text>您没有权限访问用户管理功能。</Text>
+  const columns: ColumnsType<User> = [
+    {
+      title: '用户',
+      dataIndex: 'user',
+      key: 'user',
+      render: (_, record) => (
+        <Space>
+          <Avatar 
+            src={record.profile?.avatar}
+            icon={<UserOutlined />}
+            size="small"
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>
+              {record.profile?.name || record.username || '未设置'}
+            </div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {record.email}
+            </Text>
           </div>
-        </Card>
-      </AntdAdminLayout>
-    );
-  }
+        </Space>
+      ),
+    },
+    {
+      title: '角色',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role: string) => (
+        <Tag color={getRoleColor(role)}>
+          {getRoleText(role)}
+        </Tag>
+      ),
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => (
+        <Tag color={getStatusColor(status)}>
+          {getStatusText(status)}
+        </Tag>
+      ),
+    },
+    {
+      title: '注册时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (createdAt: string) => (
+        <SafeTimeDisplay timestamp={createdAt} format="datetime" />
+      ),
+    },
+    {
+      title: '最后登录',
+      dataIndex: 'lastLoginAt',
+      key: 'lastLoginAt',
+      render: (lastLoginAt?: string) => (
+        lastLoginAt ? (
+          <SafeTimeDisplay timestamp={lastLoginAt} format="relative" />
+        ) : (
+          <Text type="secondary">从未登录</Text>
+        )
+      ),
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Tooltip title="查看详情">
+            <Button 
+              type="text" 
+              icon={<EyeOutlined />} 
+              size="small"
+              onClick={() => {
+                // 这里可以添加查看用户详情的逻辑
+                message.info('查看用户详情功能待开发');
+              }}
+            />
+          </Tooltip>
+          <Tooltip title="编辑用户">
+            <Button 
+              type="text" 
+              icon={<EditOutlined />} 
+              size="small"
+              onClick={() => handleEdit(record)}
+            />
+          </Tooltip>
+          <Popconfirm
+            title="确定要删除这个用户吗？"
+            description="删除后无法恢复，请谨慎操作。"
+            onConfirm={() => handleDelete(record.id)}
+            okText="确定"
+            cancelText="取消"
+          >
+            <Tooltip title="删除用户">
+              <Button 
+                type="text" 
+                icon={<DeleteOutlined />} 
+                size="small"
+                danger
+              />
+            </Tooltip>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <AntdAdminLayout>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        {/* 统计卡片 */}
-        <Row gutter={16}>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="总用户数"
-                value={stats.total}
-                prefix={<UserOutlined />}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="活跃用户"
-                value={stats.active}
-                valueStyle={{ color: '#3f8600' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="管理员"
-                value={stats.admins}
-                valueStyle={{ color: '#cf1322' }}
-              />
-            </Card>
-          </Col>
-          <Col span={6}>
-            <Card>
-              <Statistic
-                title="已封禁"
-                value={stats.banned}
-                valueStyle={{ color: '#faad14' }}
-              />
-            </Card>
-          </Col>
-        </Row>
+      <div style={{ padding: '0 0 24px 0' }}>
+        <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={3} style={{ margin: 0 }}>
+            用户管理
+          </Title>
+          <Space>
+            <Button 
+              icon={<ExportOutlined />}
+              onClick={() => message.info('导出功能待开发')}
+            >
+              导出
+            </Button>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={() => setIsModalVisible(true)}
+            >
+              新增用户
+            </Button>
+          </Space>
+        </div>
 
-        {/* 用户表格 */}
-        <Card
-          title="用户管理"
-          extra={
-            <Space>
-              <Input.Search
-                placeholder="搜索用户名或邮箱"
+        <Card>
+          <div style={{ marginBottom: 16 }}>
+            <Space wrap>
+              <Search
+                placeholder="搜索用户邮箱、用户名或姓名"
                 allowClear
-                style={{ width: 250 }}
-                onSearch={setSearchText}
+                style={{ width: 300 }}
+                onSearch={handleSearch}
                 onChange={(e) => setSearchText(e.target.value)}
               />
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                disabled={!hasPermission(ANTD_ADMIN_PERMISSIONS.CREATE_USER)}
+              <Select
+                placeholder="筛选角色"
+                allowClear
+                style={{ width: 120 }}
+                onChange={handleRoleFilter}
               >
-                添加用户
+                <Option value="admin">管理员</Option>
+                <Option value="moderator">版主</Option>
+                <Option value="editor">编辑</Option>
+                <Option value="user">用户</Option>
+              </Select>
+              <Select
+                placeholder="筛选状态"
+                allowClear
+                style={{ width: 120 }}
+                onChange={handleStatusFilter}
+              >
+                <Option value="active">活跃</Option>
+                <Option value="inactive">非活跃</Option>
+                <Option value="banned">已封禁</Option>
+                <Option value="pending">待审核</Option>
+              </Select>
+              <Button 
+                icon={<ReloadOutlined />}
+                onClick={fetchUsers}
+                loading={loading}
+              >
+                刷新
               </Button>
             </Space>
-          }
-        >
+          </div>
+
           <Table
             columns={columns}
             dataSource={filteredUsers}
-            loading={loading}
             rowKey="id"
+            loading={loading}
             pagination={{
               total: filteredUsers.length,
               pageSize: 10,
               showSizeChanger: true,
               showQuickJumper: true,
               showTotal: (total, range) => 
-                `第 ${range[0]}-${range[1]} 条，共 ${total} 条`,
+                `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
             }}
           />
         </Card>
 
-        {/* 编辑用户模态框 */}
         <Modal
-          title="编辑用户"
-          open={editModalVisible}
-          onOk={handleSave}
-          onCancel={() => {
-            setEditModalVisible(false);
-            setEditingUser(null);
-            form.resetFields();
-          }}
-          okText="保存"
-          cancelText="取消"
+          title={editingUser ? '编辑用户' : '新增用户'}
+          open={isModalVisible}
+          onOk={handleModalOk}
+          onCancel={handleModalCancel}
+          width={600}
         >
           <Form
             form={form}
+            name="userForm"
             layout="vertical"
-            initialValues={editingUser || {}}
+            initialValues={{
+              role: 'user',
+              status: 'active',
+            }}
           >
             <Form.Item
-              name="username"
-              label="用户名"
-              rules={[{ required: true, message: '请输入用户名' }]}
-            >
-              <Input />
-            </Form.Item>
-            
-            <Form.Item
-              name="email"
               label="邮箱"
+              name="email"
               rules={[
                 { required: true, message: '请输入邮箱' },
                 { type: 'email', message: '请输入有效的邮箱地址' }
               ]}
             >
-              <Input />
+              <Input placeholder="请输入邮箱" />
             </Form.Item>
-            
+
             <Form.Item
-              name="role"
+              label="用户名"
+              name="username"
+            >
+              <Input placeholder="请输入用户名" />
+            </Form.Item>
+
+            <Form.Item
+              label="姓名"
+              name="name"
+            >
+              <Input placeholder="请输入真实姓名" />
+            </Form.Item>
+
+            <Form.Item
+              label="手机号"
+              name="phone"
+            >
+              <Input placeholder="请输入手机号" />
+            </Form.Item>
+
+            <Form.Item
               label="角色"
+              name="role"
               rules={[{ required: true, message: '请选择角色' }]}
             >
-              <Select>
-                <Option value="user">普通用户</Option>
+              <Select placeholder="请选择角色">
+                <Option value="user">用户</Option>
+                <Option value="editor">编辑</Option>
+                <Option value="moderator">版主</Option>
                 <Option value="admin">管理员</Option>
               </Select>
             </Form.Item>
-            
+
             <Form.Item
-              name="status"
               label="状态"
+              name="status"
               rules={[{ required: true, message: '请选择状态' }]}
             >
-              <Select>
+              <Select placeholder="请选择状态">
                 <Option value="active">活跃</Option>
                 <Option value="inactive">非活跃</Option>
+                <Option value="pending">待审核</Option>
                 <Option value="banned">已封禁</Option>
               </Select>
             </Form.Item>
+
+            {!editingUser && (
+              <Form.Item
+                label="密码"
+                name="password"
+                rules={[
+                  { required: true, message: '请输入密码' },
+                  { min: 6, message: '密码至少6位' }
+                ]}
+              >
+                <Input.Password placeholder="请输入密码" />
+              </Form.Item>
+            )}
           </Form>
         </Modal>
-      </Space>
+      </div>
     </AntdAdminLayout>
   );
 }
-export 
-default function AntdUsersPage() {
+
+export default function UsersManagementPage() {
   return (
-    <AntdAdminGuard requiredPermission={ANTD_ADMIN_PERMISSIONS.VIEW_USERS}>
-      <AntdUsersManagement />
+    <AntdAdminGuard>
+      <UsersManagement />
     </AntdAdminGuard>
   );
 }

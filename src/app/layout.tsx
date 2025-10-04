@@ -5,6 +5,7 @@ import MiniPlayer from "../components/MiniPlayer";
 import { AudioPlayer } from "../components/AudioPlayer";
 import SessionProvider from "../components/SessionProvider";
 import { AuthProvider } from "../contexts/AuthContext";
+import { CategoriesProvider } from "../contexts/CategoriesContext";
 import ErrorBoundary from "../components/ErrorBoundary";
 import { ToastProvider } from "../components/ToastContainer";
 import GlobalErrorHandler from "../components/GlobalErrorHandler";
@@ -22,8 +23,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh">
-      <body className="font-sans">
+    <html lang="zh" suppressHydrationWarning>
+      <body className="font-sans" suppressHydrationWarning>
         <ErrorBoundary>
           <AntdRegistry>
             <AntdProvider>
@@ -31,14 +32,16 @@ export default function RootLayout({
               {/* <GlobalErrorHandler /> */}
               <SessionProvider session={null}>
                 <AuthProvider>
-                  {children}
-                  <div className="pb-20 sm:pb-16">
-                    {/* 为迷你播放器预留空间 - 移动端需要更多空间 */}
-                  </div>
-                  <ClientOnly>
-                    <MiniPlayer />
-                    <AudioPlayer />
-                  </ClientOnly>
+                  <CategoriesProvider>
+                    {children}
+                    <div className="pb-20 sm:pb-16">
+                      {/* 为迷你播放器预留空间 - 移动端需要更多空间 */}
+                    </div>
+                    <ClientOnly componentName="MiniPlayerContainer">
+                      <MiniPlayer />
+                      <AudioPlayer />
+                    </ClientOnly>
+                  </CategoriesProvider>
                 </AuthProvider>
               </SessionProvider>
               </ToastProvider>

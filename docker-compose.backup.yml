@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+  db-backup:
+    image: mysql:8.0
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "while true; do 
+        mysqldump -h$DB_HOST -P$DB_PORT -u$DB_USERNAME -p$DB_PASSWORD \
+        --single-transaction --quick --lock-tables=false --routines --triggers --events \
+        $DB_DATABASE | gzip -c > /backups/${DB_DATABASE}_$(date +%Y%m%d_%H%M%S).sql.gz; 
+        sleep ${BACKUP_INTERVAL_SECONDS:-86400}; 
+      done"
+    environment:
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_DATABASE: ${MYSQL_DATABASE:-health_hub}
+      DB_USERNAME: ${MYSQL_USER:-health_app}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-appPass123!}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./database/backups:/backups
+    depends_on:
+      - db
+
+

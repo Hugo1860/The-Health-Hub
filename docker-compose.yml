@@ -1,0 +1,67 @@
+services:
+  db:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass123!}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-health_hub}
+      MYSQL_USER: ${MYSQL_USER:-health_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-appPass123!}
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./database/seed:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpass123!}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      # App
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-change-me-32b-secret}
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-session}
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt}
+      CSRF_SECRET: ${CSRF_SECRET:-change-me-csrf}
+      # DB
+      DATABASE_TYPE: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${MYSQL_DATABASE:-health_hub}
+      DB_USERNAME: ${MYSQL_USER:-health_app}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-appPass123!}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./public/uploads:/app/public/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/.next/cache
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  db-data:
+
+

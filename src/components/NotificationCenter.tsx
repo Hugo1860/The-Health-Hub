@@ -1,262 +1,299 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  Badge,
+  Dropdown,
+  List,
+  Button,
+  Typography,
+  Empty,
+  Spin,
+  message,
+  Tag,
+  Space,
+  Divider
+} from 'antd';
+import {
+  BellOutlined,
+  CheckOutlined,
+  DeleteOutlined,
+  SettingOutlined
+} from '@ant-design/icons';
 import { useSession } from 'next-auth/react';
-import { Notification } from '@/lib/subscriptions';
-import Link from 'next/link';
 
-interface NotificationCenterProps {
-  showUnreadOnly?: boolean;
-  limit?: number;
+const { Text } = Typography;
+
+interface Notification {
+  id: string;
+  type: 'new_audio' | 'new_comment' | 'new_follower' | 'playlist_update' | 'system';
+  title: string;
+  message: string;
+  data?: Record<string, any>;
+  readAt?: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  createdAt: string;
 }
 
-export default function NotificationCenter({ 
-  showUnreadOnly = false, 
-  limit 
-}: NotificationCenterProps) {
+export default function NotificationCenter() {
   const { data: session } = useSession();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [dropdownVisible, setDropdownVisible] = useState(false);
 
-  useEffect(() => {
-    if (session?.user) {
-      fetchNotifications();
-    }
-  }, [session, showUnreadOnly, limit]);
+  // 获取通知列表
+  const fetchNotifications = async (unreadOnly: boolean = false) => {
+    if (!session?.user) return;
 
-  const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (showUnreadOnly) params.append('unreadOnly', 'true');
-      if (limit) params.append('limit', limit.toString());
+      const response = await fetch(`/api/user/notifications?unreadOnly=${unreadOnly}&limit=20`);
+      const result = await response.json();
 
-      const response = await fetch(`/api/notifications?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications);
-        setUnreadCount(data.unreadCount);
+      if (result.success) {
+        setNotifications(result.data);
+        setUnreadCount(result.meta.unreadCount);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('获取通知失败:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarkAsRead = async (notificationId: string) => {
+  // 标记单个通知为已读
+  const markAsRead = async (notificationId: string) => {
     try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/user/notifications?id=${notificationId}`, {
+        method: 'PUT'
       });
 
       if (response.ok) {
-        fetchNotifications();
+        setNotifications(prev => 
+          prev.map(n => 
+            n.id === notificationId ? { ...n, readAt: new Date().toISOString() } : n
+          )
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('标记通知失败:', error);
+      message.error('操作失败');
     }
   };
 
-  const handleMarkAllAsRead = async () => {
+  // 标记所有通知为已读
+  const markAllAsRead = async () => {
     try {
-      const response = await fetch('/api/notifications', {
-        method: 'PUT',
+      const response = await fetch('/api/user/notifications?markAll=true', {
+        method: 'PUT'
       });
 
       if (response.ok) {
-        fetchNotifications();
+        setNotifications(prev => 
+          prev.map(n => ({ ...n, readAt: new Date().toISOString() }))
+        );
+        setUnreadCount(0);
+        message.success('所有通知已标记为已读');
       }
     } catch (error) {
-      console.error('Error marking all notifications as read:', error);
+      console.error('标记所有通知失败:', error);
+      message.error('操作失败');
     }
   };
 
-  const handleDeleteNotification = async (notificationId: string) => {
-    try {
-      const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        fetchNotifications();
-      }
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-    }
-  };
-
-  const getNotificationIcon = (type: string) => {
+  // 获取通知图标
+  const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
-      case 'new_audio':
-        return (
-          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-        );
-      case 'new_comment':
-        return (
-          <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
-        );
-      case 'new_question':
-        return (
-          <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case 'new_answer':
-        return (
-          <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      default:
-        return (
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+      case 'new_audio': return '🎵';
+      case 'new_comment': return '💬';
+      case 'new_follower': return '👥';
+      case 'playlist_update': return '📝';
+      case 'system': return '⚙️';
+      default: return '🔔';
     }
   };
 
-  const getNotificationLink = (notification: Notification) => {
-    switch (notification.relatedType) {
-      case 'audio':
-        return `/audio/${notification.relatedId}`;
-      case 'question':
-        return `/questions/${notification.relatedId}`;
-      default:
-        return '#';
+  // 获取优先级颜色
+  const getPriorityColor = (priority: Notification['priority']) => {
+    switch (priority) {
+      case 'urgent': return 'red';
+      case 'high': return 'orange';
+      case 'normal': return 'blue';
+      case 'low': return 'default';
+      default: return 'default';
     }
   };
 
-  const formatDate = (dateString: string) => {
+  // 格式化时间
+  const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
 
-    if (diffInHours < 1) {
-      return '刚刚';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)} 小时前`;
-    } else if (diffInHours < 24 * 7) {
-      return `${Math.floor(diffInHours / 24)} 天前`;
-    } else {
-      return date.toLocaleDateString('zh-CN');
-    }
+    if (diffMins < 1) return '刚刚';
+    if (diffMins < 60) return `${diffMins}分钟前`;
+    if (diffHours < 24) return `${diffHours}小时前`;
+    if (diffDays < 7) return `${diffDays}天前`;
+    return date.toLocaleDateString('zh-CN');
   };
 
+  useEffect(() => {
+    if (session?.user) {
+      fetchNotifications();
+      
+      // 定期刷新未读数量
+      const interval = setInterval(() => {
+        fetchNotifications(true);
+      }, 30000); // 30秒刷新一次
+
+      return () => clearInterval(interval);
+    }
+  }, [session]);
+
   if (!session?.user) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-        <p className="text-gray-500 mb-4">请登录后查看通知</p>
-        <a
-          href="/auth/signin"
-          className="inline-block px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-        >
-          登录
-        </a>
-      </div>
-    );
+    return null;
   }
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  const notificationList = (
+    <div style={{ width: 350, maxHeight: 400, overflow: 'auto' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text strong>通知中心</Text>
+          <Space>
+            {unreadCount > 0 && (
+              <Button 
+                type="link" 
+                size="small" 
+                onClick={markAllAsRead}
+                style={{ padding: 0 }}
+              >
+                全部已读
+              </Button>
+            )}
+            <Button 
+              type="text" 
+              size="small" 
+              icon={<SettingOutlined />}
+              onClick={() => {
+                setDropdownVisible(false);
+                // 跳转到通知设置页面
+                window.location.href = '/settings?tab=notifications';
+              }}
+            />
+          </Space>
+        </div>
       </div>
-    );
-  }
+
+      <div style={{ padding: '8px 0' }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px' }}>
+            <Spin />
+          </div>
+        ) : notifications.length === 0 ? (
+          <Empty 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="暂无通知"
+            style={{ padding: '20px' }}
+          />
+        ) : (
+          <List
+            size="small"
+            dataSource={notifications}
+            renderItem={(notification) => (
+              <List.Item
+                style={{
+                  padding: '12px 16px',
+                  backgroundColor: notification.readAt ? 'transparent' : '#f6ffed',
+                  borderLeft: notification.readAt ? 'none' : '3px solid #52c41a'
+                }}
+                actions={[
+                  !notification.readAt && (
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CheckOutlined />}
+                      onClick={() => markAsRead(notification.id)}
+                    />
+                  )
+                ].filter(Boolean)}
+              >
+                <List.Item.Meta
+                  avatar={
+                    <div style={{ fontSize: '20px' }}>
+                      {getNotificationIcon(notification.type)}
+                    </div>
+                  }
+                  title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Text strong style={{ fontSize: '14px' }}>
+                        {notification.title}
+                      </Text>
+                      <Tag 
+                        color={getPriorityColor(notification.priority)}
+                        size="small"
+                      >
+                        {notification.priority}
+                      </Tag>
+                    </div>
+                  }
+                  description={
+                    <div>
+                      <Text style={{ fontSize: '13px', color: '#666' }}>
+                        {notification.message}
+                      </Text>
+                      <br />
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        {formatTime(notification.createdAt)}
+                      </Text>
+                    </div>
+                  }
+                />
+              </List.Item>
+            )}
+          />
+        )}
+      </div>
+
+      {notifications.length > 0 && (
+        <>
+          <Divider style={{ margin: '8px 0' }} />
+          <div style={{ textAlign: 'center', padding: '8px' }}>
+            <Button 
+              type="link" 
+              size="small"
+              onClick={() => {
+                setDropdownVisible(false);
+                window.location.href = '/notifications';
+              }}
+            >
+              查看所有通知
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-4">
-      {/* 标题和操作 */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <h3 className="text-lg font-semibold text-gray-900">通知</h3>
-          {unreadCount > 0 && (
-            <span className="px-2 py-1 bg-red-100 text-red-800 text-sm rounded-full">
-              {unreadCount} 条未读
-            </span>
-          )}
-        </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={handleMarkAllAsRead}
-            className="text-blue-600 hover:text-blue-800 text-sm transition-colors"
-          >
-            全部标记为已读
-          </button>
-        )}
-      </div>
-
-      {/* 通知列表 */}
-      <div className="space-y-2">
-        {notifications.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm p-6 text-center text-gray-500">
-            {showUnreadOnly ? '暂无未读通知' : '暂无通知'}
-          </div>
-        ) : (
-          notifications.map((notification) => (
-            <div
-              key={notification.id}
-              className={`bg-white rounded-lg shadow-sm p-4 transition-colors ${
-                !notification.isRead ? 'border-l-4 border-blue-500 bg-blue-50' : ''
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-1">
-                  {getNotificationIcon(notification.type)}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-gray-900 mb-1">
-                        {notification.title}
-                      </h4>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {notification.message}
-                      </p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>{formatDate(notification.createdAt)}</span>
-                        {notification.relatedId && (
-                          <Link
-                            href={getNotificationLink(notification)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors"
-                          >
-                            查看详情
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 ml-4">
-                      {!notification.isRead && (
-                        <button
-                          onClick={() => handleMarkAsRead(notification.id)}
-                          className="text-blue-600 hover:text-blue-800 text-xs transition-colors"
-                        >
-                          标记已读
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteNotification(notification.id)}
-                        className="text-red-600 hover:text-red-800 text-xs transition-colors"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+    <Dropdown
+      overlay={notificationList}
+      trigger={['click']}
+      placement="bottomRight"
+      open={dropdownVisible}
+      onOpenChange={setDropdownVisible}
+    >
+      <Badge count={unreadCount} size="small">
+        <Button
+          type="text"
+          icon={<BellOutlined />}
+          style={{ border: 'none' }}
+        />
+      </Badge>
+    </Dropdown>
   );
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { optimizedDb } from './OptimizedDatabase';
+import { db } from './database';
 import { queryCache } from './QueryCache';
 
 export interface QueryOptimizationOptions {

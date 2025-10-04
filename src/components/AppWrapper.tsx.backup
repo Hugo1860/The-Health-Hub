@@ -1,0 +1,23 @@
+
+'use client';
+
+import React from 'react';
+import { App } from 'antd';
+
+interface AppWrapperProps {
+  children: React.ReactNode;
+}
+
+export default function AppWrapper({ children }: AppWrapperProps) {
+  return (
+    <App>
+      {children}
+    </App>
+  );
+}
+
+// Hook for using message in components
+export function useMessage() {
+  const { message } = App.useApp();
+  return message;
+}

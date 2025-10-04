@@ -1,7 +1,7 @@
 // Dashboard 最近活动 API
 
 import { NextRequest } from 'next/server'
-import db from '@/lib/db'
+import { getDatabase } from '@/lib/database'
 import { AdminApiResponseBuilder } from '@/lib/adminApiUtils'
 
 // 活动类型枚举
@@ -28,18 +28,20 @@ interface RecentActivity {
 // 获取音频上传活动
 const getAudioUploadActivities = async (limit: number): Promise<RecentActivity[]> => {
   try {
+    const db = getDatabase()
     const query = `
       SELECT 
         a.id,
         a.title,
-        a.uploadDate as timestamp,
+        a.upload_date as timestamp,
         'system' as username
       FROM audios a
-      ORDER BY a.uploadDate DESC
+      ORDER BY a.upload_date DESC
       LIMIT ?
     `
     
-    const results = db.prepare(query).all(limit) as any[]
+    const result = await db.query(query, [limit])
+    const results = result.rows
     
     return results.map(row => ({
       id: `audio_${row.id}`,
@@ -65,18 +67,20 @@ const getAudioUploadActivities = async (limit: number): Promise<RecentActivity[]
 // 获取用户注册活动
 const getUserRegisterActivities = async (limit: number): Promise<RecentActivity[]> => {
   try {
+    const db = getDatabase()
     const query = `
       SELECT 
         id,
         username,
         email,
-        createdAt as timestamp
+        created_at as timestamp
       FROM users
-      ORDER BY createdAt DESC
+      ORDER BY created_at DESC
       LIMIT ?
     `
     
-    const results = db.prepare(query).all(limit) as any[]
+    const result = await db.query(query, [limit])
+    const results = result.rows
     
     return results.map(row => {
       const username = row.username || row.email?.split('@')[0] || '未知用户'
@@ -104,21 +108,23 @@ const getUserRegisterActivities = async (limit: number): Promise<RecentActivity[
 // 获取评论活动
 const getCommentActivities = async (limit: number): Promise<RecentActivity[]> => {
   try {
+    const db = getDatabase()
     const query = `
       SELECT 
         c.id,
         c.content,
-        c.createdAt as timestamp,
-        c.audioId as audio_id,
+        c.created_at as timestamp,
+        c.audio_id as audio_id,
         'anonymous' as username,
         a.title as audio_title
       FROM comments c
-      LEFT JOIN audios a ON c.audioId = a.id
-      ORDER BY c.createdAt DESC
+      LEFT JOIN audios a ON c.audio_id = a.id
+      ORDER BY c.created_at DESC
       LIMIT ?
     `
     
-    const results = db.prepare(query).all(limit) as any[]
+    const result = await db.query(query, [limit])
+    const results = result.rows
     
     return results.map(row => {
       const username = row.username || '匿名用户'

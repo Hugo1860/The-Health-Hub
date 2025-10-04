@@ -10,7 +10,13 @@ export default function SessionProvider({
   session: any
 }) {
   return (
-    <NextAuthSessionProvider session={session}>
+    <NextAuthSessionProvider 
+      session={session}
+      // 启用 session 自动刷新和保持
+      refetchInterval={5 * 60} // 每5分钟自动刷新
+      refetchOnWindowFocus={true} // 窗口获得焦点时刷新（重要！）
+      refetchWhenOffline={false} // 离线时不刷新
+    >
       {children}
     </NextAuthSessionProvider>
   )

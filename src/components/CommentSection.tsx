@@ -13,6 +13,10 @@ interface Comment {
   createdAt: string
   updatedAt?: string
   parentId?: string
+  status?: 'pending' | 'approved' | 'rejected'
+  moderatedAt?: string
+  moderatedBy?: string
+  moderationReason?: string
 }
 
 interface CommentWithReplies extends Comment {
@@ -58,7 +62,7 @@ export default function CommentSection({ audioId, audioTitle }: CommentSectionPr
       const response = await fetch(`/api/comments?audioId=${audioId}`)
       if (response.ok) {
         const data = await response.json()
-        setComments(data.comments || [])
+        setComments(data.data?.comments || [])
       }
     } catch (error) {
       console.error('获取评论失败:', error)
@@ -147,11 +151,13 @@ export default function CommentSection({ audioId, audioTitle }: CommentSectionPr
       })
 
       if (response.ok) {
+        const data = await response.json()
         setNewComment('')
+        alert(data.message || '评论已提交，等待管理员审核后显示')
         await fetchComments()
       } else {
         const data = await response.json()
-        alert(data.error || '发布评论失败')
+        alert(data.error?.message || data.error || '发布评论失败')
       }
     } catch (error) {
       alert('发布评论失败，请稍后重试')

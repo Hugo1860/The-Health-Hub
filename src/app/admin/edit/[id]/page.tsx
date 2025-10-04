@@ -1,70 +1,100 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
-import { PlayCircleOutlined, PauseCircleOutlined } from '@ant-design/icons'
-import AntdAdminLayout from '@/components/AntdAdminLayout'
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { 
+  Card, 
+  Form, 
+  Input, 
+  Button, 
+  Select, 
+  Space,
+  Typography,
+  Row,
+  Col,
+  Spin,
+  Tooltip,
+  App,
+  Avatar,
+  Tag
+} from 'antd';
+import { 
+  PlayCircleOutlined, 
+  PauseCircleOutlined, 
+  EditOutlined, 
+  ReloadOutlined,
+  ArrowLeftOutlined,
+  SoundOutlined,
+  SaveOutlined
+} from '@ant-design/icons';
+import AntdAdminLayout from '@/components/AntdAdminLayout';
+import { AntdAdminGuard } from '@/components/AntdAdminGuard';
+import CoverImageUpload from '@/components/admin/CoverImageUpload';
+import { CategorySelector } from '@/components/CategorySelector';
+import { CategoryBreadcrumb } from '@/components/CategoryBreadcrumb';
+import { CategoriesProvider, useCategories } from '@/contexts/CategoriesContextNew';
+import { CategorySelection } from '@/types/category';
+import SafeTimeDisplay from '@/components/SafeTimeDisplay';
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
 interface AudioFile {
-  id: string
-  title: string
-  description: string
-  url: string
-  filename: string
-  uploadDate: string
-  subject: string
-  tags: string[]
-  speaker?: string
-  recordingDate?: string
-  duration?: number
-  transcription?: string
-  chapters?: AudioChapter[]
-  relatedResources?: RelatedResource[]
+  id: string;
+  title: string;
+  description?: string;
+  url: string;
+  filename: string;
+  uploadDate: string;
+  subject?: string;
+  tags?: string[];
+  speaker?: string;
+  recordingDate?: string;
+  duration?: number;
+  filesize?: number;
+  coverImage?: string;
+  status?: string;
+  categoryId?: string;
+  subcategoryId?: string;
+  category?: {
+    id: string;
+    name: string;
+    color?: string;
+    icon?: string;
+  };
+  subcategory?: {
+    id: string;
+    name: string;
+  };
 }
 
-interface AudioChapter {
-  id: string
-  title: string
-  startTime: number
-  endTime?: number
-  description?: string
-}
+function EditAudioContent() {
+  const { message } = App.useApp();
+  const { id } = useParams();
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const [form] = Form.useForm();
 
-interface RelatedResource {
-  id: string
-  title: string
-  url: string
-  type: 'link' | 'pdf' | 'image'
-  description?: string
-}
+  const [audio, setAudio] = useState<AudioFile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [categorySelection, setCategorySelection] = useState<CategorySelection>({});
+  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
+  const [currentCoverUrl, setCurrentCoverUrl] = useState<string>('');
 
-export default function EditAudioPage() {
-  const { id } = useParams()
-  const router = useRouter()
-  const { data: session, status } = useSession()
+  // 音频播放器状态
+  const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  const [audio, setAudio] = useState<AudioFile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [subject, setSubject] = useState('')
-  const [tags, setTags] = useState<string[]>([])
-  const [speaker, setSpeaker] = useState('')
-  const [recordingDate, setRecordingDate] = useState('')
-  const [transcription, setTranscription] = useState('')
-  const [chapters, setChapters] = useState<AudioChapter[]>([])
-  const [relatedResources, setRelatedResources] = useState<RelatedResource[]>([])
-
-  const [audioPlayer, setAudioPlayer] = useState<HTMLAudioElement | null>(null)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+  // 使用增强的分类上下文
+  const { 
+    categories, 
+    loading: loadingCategories, 
+    refreshCategories 
+  } = useCategories();
 
   // 检查用户权限
   const isAdmin = session?.user && ['admin', 'moderator', 'editor'].includes((session.user as any).role);
@@ -77,574 +107,564 @@ export default function EditAudioPage() {
       return;
     }
 
-    fetchAudio()
-  }, [id, session, status, router, isAdmin])
+    fetchAudio();
+    refreshCategories();
+  }, [id, session, status, router, isAdmin, refreshCategories]);
+
+  // 页面获得焦点时刷新分类数据
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshCategories();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshCategories();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshCategories]);
 
   useEffect(() => {
     if (audio?.url) {
-      const audioElement = new Audio(audio.url)
-      setAudioPlayer(audioElement)
+      const audioElement = new Audio(audio.url);
+      setAudioPlayer(audioElement);
 
       const handleLoadedMetadata = () => {
-        setDuration(audioElement.duration)
-      }
+        setDuration(audioElement.duration);
+      };
 
       const handleTimeUpdate = () => {
-        setCurrentTime(audioElement.currentTime)
-      }
+        setCurrentTime(audioElement.currentTime);
+      };
 
       const handleEnded = () => {
-        setIsPlaying(false)
-      }
+        setIsPlaying(false);
+      };
 
-      audioElement.addEventListener('loadedmetadata', handleLoadedMetadata)
-      audioElement.addEventListener('timeupdate', handleTimeUpdate)
-      audioElement.addEventListener('ended', handleEnded)
+      audioElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+      audioElement.addEventListener('timeupdate', handleTimeUpdate);
+      audioElement.addEventListener('ended', handleEnded);
 
       return () => {
-        audioElement.pause()
-        audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
-        audioElement.removeEventListener('timeupdate', handleTimeUpdate)
-        audioElement.removeEventListener('ended', handleEnded)
-        audioElement.src = ''
-      }
+        audioElement.pause();
+        audioElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audioElement.removeEventListener('timeupdate', handleTimeUpdate);
+        audioElement.removeEventListener('ended', handleEnded);
+        audioElement.src = '';
+      };
     }
-  }, [audio])
+  }, [audio]);
 
   const fetchAudio = async () => {
     try {
-      const response = await fetch(`/api/audio/${id}`, {
-        credentials: 'include' // 包含认证cookie
-      })
+      const response = await fetch(`/api/admin/simple-audio/${id}`, {
+        credentials: 'include'
+      });
+      
       if (!response.ok) {
-        throw new Error('获取音频信息失败')
+        throw new Error('获取音频信息失败');
       }
-      const data = await response.json()
-      const audioData = data.audio || data // 处理不同的响应格式
-      setAudio(audioData)
-      setTitle(audioData.title)
-      setDescription(audioData.description)
-      setSubject(audioData.subject)
-      setTags(audioData.tags || [])
-      setSpeaker(audioData.speaker || '')
-      setRecordingDate(audioData.recordingDate || '')
-      setTranscription(audioData.transcription || '')
-      setChapters(audioData.chapters || [])
-      setRelatedResources(audioData.relatedResources || [])
+      
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.error?.message || '获取音频信息失败');
+      }
+      
+      const audioData = data.audio;
+      setAudio(audioData);
+      setCurrentCoverUrl(audioData.coverImage || '');
+      
+      // 设置分类选择
+      setCategorySelection({
+        categoryId: audioData.categoryId || '',
+        subcategoryId: audioData.subcategoryId || ''
+      });
+      
+      // 设置表单值
+      form.setFieldsValue({
+        title: audioData.title,
+        description: audioData.description || '',
+        speaker: audioData.speaker || '',
+        status: audioData.status || 'published',
+        tags: audioData.tags || []
+      });
+      
     } catch (error) {
-      console.error('获取音频信息失败:', error)
-      setError('获取音频信息失败')
+      console.error('获取音频信息失败:', error);
+      message.error('获取音频信息失败');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const togglePlayPause = () => {
-    if (!audioPlayer) return
+    if (!audioPlayer) return;
 
     if (isPlaying) {
-      audioPlayer.pause()
-      setIsPlaying(false)
+      audioPlayer.pause();
+      setIsPlaying(false);
     } else {
-      audioPlayer.play()
-      setIsPlaying(true)
+      audioPlayer.play();
+      setIsPlaying(true);
     }
-  }
+  };
 
   const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!audioPlayer) return
-    const newTime = (parseFloat(e.target.value) / 100) * duration
-    audioPlayer.currentTime = newTime
-    setCurrentTime(newTime)
-  }
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '-';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
 
-  const validateForm = (): boolean => {
-    const errors: Record<string, string> = {}
+  const handleCoverImageChange = (file: File | null, previewUrl?: string) => {
+    setCoverImageFile(file);
+  };
 
-    if (!title.trim()) {
-      errors.title = '标题不能为空'
-    }
-    if (!subject.trim()) {
-      errors.subject = '学科分类不能为空'
-    }
-    if (title.length > 200) {
-      errors.title = '标题不能超过200个字符'
-    }
-    if (description.length > 2000) {
-      errors.description = '描述不能超过2000个字符'
-    }
-    if (tags.length > 10) {
-      errors.tags = '标签数量不能超过10个'
-    }
-
-    setValidationErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateForm()) {
-      setError('请修正表单中的错误')
-      return
-    }
-
-    setIsUpdating(true)
-    setMessage('')
-    setError('')
-
+  const handleSubmit = async (values: any) => {
+    setUpdating(true);
+    
     try {
-      const updateData = {
-        title,
-        description,
-        subject,
-        tags,
-        speaker,
-        recordingDate,
-        transcription,
-        chapters,
-        relatedResources
+      let coverImageUrl = currentCoverUrl;
+      
+      // 处理封面图片上传
+      if (coverImageFile) {
+        const formData = new FormData();
+        formData.append('coverImage', coverImageFile);
+        
+        try {
+          // 获取 CSRF token
+          const csrfResponse = await fetch('/api/csrf-token');
+          const csrfData = await csrfResponse.json();
+          
+          const uploadResponse = await fetch('/api/upload-cover', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'X-CSRF-Token': csrfData.token,
+            },
+            body: formData,
+          });
+          
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            if (uploadResult.success && uploadResult.data) {
+              coverImageUrl = uploadResult.data.url;
+            }
+          }
+        } catch (uploadError) {
+          console.error('封面图片上传失败:', uploadError);
+          message.warning('封面图片上传失败，将保持原有图片');
+        }
       }
+      
+      const updateData = {
+        title: values.title,
+        description: values.description || '',
+        speaker: values.speaker || '',
+        status: values.status || 'published',
+        tags: values.tags || [],
+        coverImage: coverImageUrl,
+        categoryId: categorySelection.categoryId,
+        subcategoryId: categorySelection.subcategoryId
+      };
 
-      const response = await fetch(`/api/audio/${id}`, {
+      const response = await fetch(`/api/admin/simple-audio/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(updateData),
-        credentials: 'include' // 包含认证cookie
-      })
-
-      const result = await response.json()
+        credentials: 'include'
+      });
 
       if (response.ok) {
-        setMessage('更新成功！')
-        setTimeout(() => setMessage(''), 3000)
+        const result = await response.json();
+        if (result.success) {
+          message.success('音频更新成功！');
+          // 重新获取数据以更新显示
+          fetchAudio();
+        } else {
+          message.error(result.error?.message || '更新失败');
+        }
       } else {
-        setError(`更新失败：${result.error || '未知错误'}`)
+        const error = await response.json();
+        message.error(error.error?.message || error.message || '更新失败');
       }
     } catch (error) {
-      console.error('更新失败:', error)
-      setError('更新失败：网络错误')
+      console.error('更新失败:', error);
+      message.error('更新失败，请稍后重试');
     } finally {
-      setIsUpdating(false)
+      setUpdating(false);
     }
-  }
+  };
 
-  const addChapter = () => {
-    setChapters([...chapters, {
-      id: Date.now().toString(),
-      title: '',
-      startTime: 0,
-      description: ''
-    }])
-  }
 
-  const updateChapter = (chapterId: string, field: keyof AudioChapter, value: any) => {
-    setChapters(chapters.map(chapter =>
-      chapter.id === chapterId ? { ...chapter, [field]: value } : chapter
-    ))
-  }
-
-  const removeChapter = (chapterId: string) => {
-    setChapters(chapters.filter(chapter => chapter.id !== chapterId))
-  }
-
-  const addResource = () => {
-    setRelatedResources([...relatedResources, {
-      id: Date.now().toString(),
-      title: '',
-      url: '',
-      type: 'link',
-      description: ''
-    }])
-  }
-
-  const updateResource = (resourceId: string, field: keyof RelatedResource, value: any) => {
-    setRelatedResources(relatedResources.map(resource =>
-      resource.id === resourceId ? { ...resource, [field]: value } : resource
-    ))
-  }
-
-  const removeResource = (resourceId: string) => {
-    setRelatedResources(relatedResources.filter(resource => resource.id !== resourceId))
-  }
 
   if (status === 'loading' || loading) {
     return (
       <AntdAdminLayout>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-lg text-gray-600">加载中...</div>
-        </div>
+        <Card size="small" style={{ margin: 0 }}>
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 16 }}>加载中...</div>
+          </div>
+        </Card>
       </AntdAdminLayout>
-    )
+    );
   }
 
   if (!session?.user || !isAdmin) {
     return (
       <AntdAdminLayout>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-red-600">您没有权限访问此页面</div>
-        </div>
+        <Card size="small" style={{ margin: 0 }}>
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#ff4d4f' }}>
+            您没有权限访问此页面
+          </div>
+        </Card>
       </AntdAdminLayout>
-    )
+    );
   }
 
   if (!audio) {
     return (
       <AntdAdminLayout>
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-red-600">音频不存在</div>
-        </div>
+        <Card size="small" style={{ margin: 0 }}>
+          <div style={{ textAlign: 'center', padding: '40px 0', color: '#ff4d4f' }}>
+            音频不存在
+          </div>
+        </Card>
       </AntdAdminLayout>
-    )
+    );
   }
 
   return (
     <AntdAdminLayout>
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">编辑音频</h1>
-              <button
+      <Row gutter={16}>
+        {/* 主编辑区域 */}
+        <Col xs={24} lg={16}>
+          <Card size="small" style={{ margin: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Title level={3} style={{ margin: 0, fontSize: '18px' }}>
+                <EditOutlined style={{ marginRight: 8 }} />
+                编辑音频
+              </Title>
+              <Button 
+                icon={<ArrowLeftOutlined />} 
                 onClick={() => router.back()}
-                className="text-gray-600 hover:text-gray-900"
+                size="small"
               >
                 返回
-              </button>
+              </Button>
             </div>
+            
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSubmit}
+              style={{ maxWidth: '100%' }}
+            >
+              {/* 1. 音频标题 */}
+              <Form.Item
+                name="title"
+                label="1. 音频标题"
+                rules={[
+                  { required: true, message: '请输入音频标题' },
+                  { max: 200, message: '标题不能超过200个字符' }
+                ]}
+                style={{ marginBottom: 16 }}
+              >
+                <Input placeholder="请输入音频标题" />
+              </Form.Item>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  <div>
-                    <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                      标题 *
-                    </label>
-                    <input
-                      id="title"
-                      type="text"
-                      value={title}
-                      onChange={(e) => {
-                        setTitle(e.target.value)
-                        setValidationErrors({ ...validationErrors, title: '' })
-                      }}
-                      required
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${validationErrors.title ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                        }`}
-                    />
-                    {validationErrors.title && (
-                      <p className="mt-1 text-sm text-red-600">{validationErrors.title}</p>
-                    )}
-                  </div>
+              {/* 2. 音频描述 */}
+              <Form.Item
+                name="description"
+                label="2. 音频描述"
+                rules={[{ max: 1000, message: '描述不能超过1000个字符' }]}
+                style={{ marginBottom: 16 }}
+              >
+                <TextArea 
+                  rows={4} 
+                  placeholder="请输入音频描述（可选）"
+                  showCount
+                  maxLength={1000}
+                />
+              </Form.Item>
 
-                  <div>
-                    <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                      描述 *
-                    </label>
-                    <textarea
-                      id="description"
-                      value={description}
-                      onChange={(e) => {
-                        setDescription(e.target.value)
-                        setValidationErrors({ ...validationErrors, description: '' })
-                      }}
-                      required
-                      rows={3}
-                      maxLength={2000}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${validationErrors.description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                        }`}
-                    />
-                    <div className="flex justify-between text-sm text-gray-500 mt-1">
-                      <span>{description.length}/2000</span>
-                    </div>
-                    {validationErrors.description && (
-                      <p className="mt-1 text-sm text-red-600">{validationErrors.description}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700 mb-2">
-                      学科分类 *
-                    </label>
-                    <select
-                      id="subject"
-                      value={subject}
-                      onChange={(e) => {
-                        setSubject(e.target.value)
-                        setValidationErrors({ ...validationErrors, subject: '' })
-                      }}
-                      required
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${validationErrors.subject ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
-                        }`}
-                    >
-                      <option value="">选择学科</option>
-                      <option value="人工智能">人工智能</option>
-                      <option value="机器学习">机器学习</option>
-                      <option value="深度学习">深度学习</option>
-                      <option value="自然语言处理">自然语言处理</option>
-                      <option value="计算机视觉">计算机视觉</option>
-                    </select>
-                    {validationErrors.subject && (
-                      <p className="mt-1 text-sm text-red-600">{validationErrors.subject}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-2">
-                      标签 (用逗号分隔)
-                    </label>
-                    <input
-                      id="tags"
-                      type="text"
-                      value={tags.join(', ')}
-                      onChange={(e) => setTags(e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="speaker" className="block text-sm font-medium text-gray-700 mb-2">
-                      演讲者
-                    </label>
-                    <input
-                      id="speaker"
-                      type="text"
-                      value={speaker}
-                      onChange={(e) => setSpeaker(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="recordingDate" className="block text-sm font-medium text-gray-700 mb-2">
-                      录制日期
-                    </label>
-                    <input
-                      id="recordingDate"
-                      type="date"
-                      value={recordingDate}
-                      onChange={(e) => setRecordingDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="transcription" className="block text-sm font-medium text-gray-700 mb-2">
-                      转录文本
-                    </label>
-                    <textarea
-                      id="transcription"
-                      value={transcription}
-                      onChange={(e) => setTranscription(e.target.value)}
-                      rows={8}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">支持Markdown格式</p>
-                  </div>
-
-                  {/* 章节管理 */}
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3">章节管理</h3>
-                    <div className="space-y-3">
-                      {chapters.map((chapter) => (
-                        <div key={chapter.id} className="p-4 border border-gray-200 rounded-md">
-                          <div className="grid grid-cols-12 gap-3">
-                            <div className="col-span-5">
-                              <input
-                                type="text"
-                                placeholder="章节标题"
-                                value={chapter.title}
-                                onChange={(e) => updateChapter(chapter.id, 'title', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
-                            <div className="col-span-3">
-                              <input
-                                type="number"
-                                placeholder="开始时间(秒)"
-                                value={chapter.startTime}
-                                onChange={(e) => updateChapter(chapter.id, 'startTime', parseInt(e.target.value) || 0)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
-                            <div className="col-span-3">
-                              <input
-                                type="number"
-                                placeholder="结束时间(秒)"
-                                value={chapter.endTime || ''}
-                                onChange={(e) => updateChapter(chapter.id, 'endTime', e.target.value ? parseInt(e.target.value) : undefined)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
-                            <div className="col-span-1">
-                              <button
-                                type="button"
-                                onClick={() => removeChapter(chapter.id)}
-                                className="w-full px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                              >
-                                删除
-                              </button>
-                            </div>
-                          </div>
-                          <textarea
-                            placeholder="章节描述(可选)"
-                            value={chapter.description || ''}
-                            onChange={(e) => updateChapter(chapter.id, 'description', e.target.value)}
-                            rows={2}
-                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={addChapter}
-                        className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                      >
-                        + 添加章节
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 相关资源管理 */}
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3">相关资源</h3>
-                    <div className="space-y-3">
-                      {relatedResources.map((resource) => (
-                        <div key={resource.id} className="p-4 border border-gray-200 rounded-md">
-                          <div className="grid grid-cols-12 gap-3">
-                            <div className="col-span-4">
-                              <input
-                                type="text"
-                                placeholder="资源标题"
-                                value={resource.title}
-                                onChange={(e) => updateResource(resource.id, 'title', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
-                            <div className="col-span-4">
-                              <input
-                                type="url"
-                                placeholder="资源链接"
-                                value={resource.url}
-                                onChange={(e) => updateResource(resource.id, 'url', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                              />
-                            </div>
-                            <div className="col-span-3">
-                              <select
-                                value={resource.type}
-                                onChange={(e) => updateResource(resource.id, 'type', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                              >
-                                <option value="link">链接</option>
-                                <option value="pdf">PDF</option>
-                                <option value="image">图片</option>
-
-                              </select>
-                            </div>
-                            <div className="col-span-1">
-                              <button
-                                type="button"
-                                onClick={() => removeResource(resource.id)}
-                                className="w-full px-3 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
-                              >
-                                删除
-                              </button>
-                            </div>
-                          </div>
-                          <textarea
-                            placeholder="资源描述(可选)"
-                            value={resource.description || ''}
-                            onChange={(e) => updateResource(resource.id, 'description', e.target.value)}
-                            rows={2}
-                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                          />
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={addResource}
-                        className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-                      >
-                        + 添加相关资源
-                      </button>
-                    </div>
-                  </div>
-
-                  {message && (
-                    <div className="text-green-600 text-sm text-center bg-green-50 p-3 rounded-md">
-                      {message}
-                    </div>
-                  )}
-
-                  {error && (
-                    <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-md">
-                      {error}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={isUpdating}
-                    className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+              {/* 3. 封面和演讲者 */}
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col xs={24} sm={12} md={16} lg={16} xl={16}>
+                  <Form.Item
+                    name="speaker"
+                    label="3. 演讲者"
+                    rules={[{ max: 100, message: '演讲者姓名不能超过100个字符' }]}
+                    style={{ marginBottom: 0 }}
                   >
-                    {isUpdating ? '更新中...' : '保存更改'}
-                  </button>
-                </form>
-              </div>
+                    <Input placeholder="演讲者姓名（可选）" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={8} xl={8}>
+                  <Form.Item label="封面图片" style={{ marginBottom: 0 }}>
+                    <CoverImageUpload
+                      onChange={handleCoverImageChange}
+                      disabled={updating}
+                      compact={true}
+                      initialImageUrl={currentCoverUrl}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
 
-              <div className="lg:col-span-1">
-                <div className="bg-gray-50 p-4 rounded-md sticky top-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">音频预览</h3>
-
-                  <div className="bg-white p-4 rounded-md">
-                    <div className="text-sm text-gray-600 mb-2">
-                      时长: {audio.duration ? formatTime(audio.duration) : '未知'}
-                    </div>
-
-                    {audioPlayer && (
-                      <div className="space-y-3">
-                        <button
-                          onClick={togglePlayPause}
-                          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
-                        >
-                          {isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-                          {isPlaying ? '暂停' : '播放'}
-                        </button>
-
-                        <div className="text-center text-sm">
-                          {formatTime(currentTime)} / {formatTime(duration)}
-                        </div>
-                        {audio.duration && (
-                          <div className="text-xs text-gray-500 mt-1">
-                            总时长: {Math.floor(audio.duration / 60)}分{audio.duration % 60}秒
-                          </div>
-                        )}
-
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={duration ? (currentTime / duration) * 100 : 0}
-                          onChange={handleSeek}
-                          className="w-full"
+              {/* 4. 分类选择 */}
+              <Card size="small" title="4. 分类设置" style={{ marginBottom: 12, backgroundColor: '#fafafa' }}>
+                <Form.Item
+                  label={
+                    <Space size="small">
+                      <span style={{ fontSize: 12 }}>分类选择</span>
+                      <Tooltip title="刷新分类列表">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<ReloadOutlined />}
+                          loading={loadingCategories}
+                          onClick={refreshCategories}
+                          style={{ padding: '0 2px', fontSize: 10 }}
                         />
-                      </div>
-                    )}
+                      </Tooltip>
+                    </Space>
+                  }
+                  rules={[
+                    {
+                      validator: () => {
+                        if (!categorySelection.categoryId) {
+                          return Promise.reject(new Error('请选择分类'));
+                        }
+                        return Promise.resolve();
+                      }
+                    }
+                  ]}
+                  style={{ marginBottom: 8 }}
+                >
+                  <CategorySelector
+                    value={categorySelection}
+                    onChange={setCategorySelection}
+                    level="both"
+                    allowEmpty={false}
+                    loading={loadingCategories}
+                    placeholder={{
+                      category: '请选择一级分类',
+                      subcategory: '请选择二级分类（可选）'
+                    }}
+                  />
+                </Form.Item>
+
+                {/* 分类路径预览 */}
+                {(categorySelection.categoryId || categorySelection.subcategoryId) && (
+                  <div style={{ 
+                    marginTop: 8, 
+                    padding: 6, 
+                    backgroundColor: '#e6f7ff', 
+                    borderRadius: 4,
+                    fontSize: 12
+                  }}>
+                    <div style={{ color: '#666', marginBottom: 2, fontSize: 10 }}>分类路径：</div>
+                    <CategoryBreadcrumb
+                      categoryId={categorySelection.categoryId}
+                      subcategoryId={categorySelection.subcategoryId}
+                      showHome={false}
+                    />
+                  </div>
+                )}
+              </Card>
+
+              {/* 5. 标签和状态 */}
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col xs={24} sm={16} md={18} lg={18} xl={18}>
+                  <Form.Item
+                    name="tags"
+                    label="5. 标签"
+                    rules={[
+                      {
+                        validator: (_, value) => {
+                          // 确保 value 是数组
+                          if (!value) return Promise.resolve();
+                          
+                          // 如果不是数组，尝试转换
+                          const tagsArray = Array.isArray(value) ? value : [];
+                          
+                          if (tagsArray.length > 10) {
+                            return Promise.reject(new Error('标签数量不能超过10个'));
+                          }
+                          if (tagsArray.some((tag: string) => tag && tag.length > 50)) {
+                            return Promise.reject(new Error('单个标签不能超过50个字符'));
+                          }
+                          return Promise.resolve();
+                        }
+                      }
+                    ]}
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select
+                      mode="tags"
+                      placeholder="输入标签，按回车添加（可选）"
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={8} md={6} lg={6} xl={6}>
+                  <Form.Item
+                    name="status"
+                    label="发布状态"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <Select>
+                      <Select.Option value="draft">草稿</Select.Option>
+                      <Select.Option value="published">已发布</Select.Option>
+                      <Select.Option value="archived">已归档</Select.Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              {/* 操作按钮 */}
+              <Form.Item style={{ marginBottom: 0, marginTop: 8 }}>
+                <Space size="small">
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    loading={updating}
+                    icon={<SaveOutlined />}
+                    size="small"
+                  >
+                    {updating ? '保存中...' : '保存更改'}
+                  </Button>
+                  <Button 
+                    size="small"
+                    onClick={() => router.back()}
+                  >
+                    取消
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Card>
+        </Col>
+
+        {/* 音频预览区域 */}
+        <Col xs={24} lg={8}>
+          <Card size="small" title="音频预览" style={{ margin: 0 }}>
+            {/* 音频信息卡片 */}
+            <div style={{ marginBottom: 16 }}>
+              <Space>
+                <Avatar 
+                  src={currentCoverUrl || audio.coverImage || undefined}
+                  icon={<SoundOutlined />}
+                  size={64}
+                  shape="square"
+                />
+                <div>
+                  <div style={{ fontWeight: 500, marginBottom: 4 }}>
+                    {audio.title}
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {audio.speaker && `${audio.speaker} • `}
+                    {formatTime(audio.duration || 0)} • {formatFileSize(audio.filesize)}
+                  </Text>
+                  <div style={{ marginTop: 4 }}>
+                    <SafeTimeDisplay timestamp={audio.uploadDate} format="datetime" />
                   </div>
                 </div>
-              </div>
+              </Space>
             </div>
-          </div>
-        </div>
-      </div>
+
+            {/* 分类信息 */}
+            {audio.category && (
+              <div style={{ marginBottom: 16 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>分类：</Text>
+                <div style={{ marginTop: 4 }}>
+                  <Tag color="blue">
+                    {audio.category.icon && <span>{audio.category.icon} </span>}
+                    {audio.category.name}
+                  </Tag>
+                  {audio.subcategory && (
+                    <Tag color="green">
+                      {audio.subcategory.name}
+                    </Tag>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 音频播放器 */}
+            {audioPlayer && (
+              <div style={{ 
+                padding: 12, 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: 6,
+                marginBottom: 16
+              }}>
+                <Button
+                  onClick={togglePlayPause}
+                  type="primary"
+                  block
+                  icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                  style={{ marginBottom: 8 }}
+                >
+                  {isPlaying ? '暂停' : '播放'}
+                </Button>
+
+                <div style={{ textAlign: 'center', fontSize: 12, marginBottom: 8 }}>
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </div>
+
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={duration ? (currentTime / duration) * 100 : 0}
+                  onChange={(e) => {
+                    if (!audioPlayer) return;
+                    const newTime = (parseFloat(e.target.value) / 100) * duration;
+                    audioPlayer.currentTime = newTime;
+                    setCurrentTime(newTime);
+                  }}
+                  style={{ width: '100%' }}
+                />
+              </div>
+            )}
+
+            {/* 文件信息 */}
+            <div style={{ fontSize: 12, color: '#666' }}>
+              <div>文件名：{audio.filename}</div>
+              <div>格式：{audio.filename.split('.').pop()?.toUpperCase()}</div>
+              {audio.filesize && <div>大小：{formatFileSize(audio.filesize)}</div>}
+            </div>
+          </Card>
+        </Col>
+      </Row>
     </AntdAdminLayout>
-  )
+  );
+}
+export
+ default function EditAudioPage() {
+  return (
+    <AntdAdminGuard>
+      <CategoriesProvider>
+        <EditAudioContent />
+      </CategoriesProvider>
+    </AntdAdminGuard>
+  );
 }
